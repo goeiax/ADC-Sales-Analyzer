@@ -40,9 +40,26 @@ function goView(goal) {
   const title = document.getElementById('goalTitle');
   if (title) title.textContent = g.title;
 
-  // Charts were built while hidden — resize them now that their container is visible.
+  // Charts created inside a display:none container are stuck at 0x0 — Chart.js
+  // resize() cannot recover them. Recreate any dead-but-now-visible chart in place
+  // from its own config; healthy ones just repaint. setTimeout (not rAF) so this
+  // still runs when the window is occluded/backgrounded, where rAF never fires.
   if (typeof chartInstances !== 'undefined') {
-    requestAnimationFrame(() => chartInstances.forEach(c => { try { c.resize(); } catch (_) {} }));
+    setTimeout(() => {
+      chartInstances.forEach((c, i) => {
+        try {
+          const canvas = c.canvas;
+          if (!canvas || canvas.offsetParent === null) return; // still hidden
+          if (c.width === 0 || c.height === 0) {
+            const cfg = { type: c.config.type, data: c.config.data, options: c.config.options };
+            c.destroy();
+            chartInstances[i] = new Chart(canvas, cfg);
+          } else {
+            c.resize(); c.update('none');
+          }
+        } catch (_) {}
+      });
+    }, 60);
   }
   window.scrollTo(0, 0);
 }
