@@ -5,6 +5,15 @@
  * Globals are intentional (window.*) so onclick= handlers and cross-module calls continue to work.
  */
 
+// ── CHART.JS GLOBAL DEFAULTS ─────────────────────────────────────────────────
+// aspectRatio 3 → height ≈ width/3 (~215px at 650px wide, vs 325px at default 2)
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.aspectRatio = 3;
+  Chart.defaults.plugins.legend.labels.boxWidth = 10;
+  Chart.defaults.plugins.legend.labels.padding = 10;
+  Chart.defaults.plugins.legend.labels.font = { size: 11 };
+}
+
 // ── DATA (embedded fallback; refreshed from dashboard-data.json on start) ─────
 const D_DEFAULT = {
   monthly: [
@@ -281,6 +290,7 @@ function rebuildDashboard(){
   updateKPIs();
   if(typeof buildDataQuality === 'function') buildDataQuality();
   if(typeof buildLocalQuery === 'function') buildLocalQuery();
+  if(typeof buildProductTrends === 'function') buildProductTrends();
 }
 
 // (Additional core builders and small utils from the original monolithic script will continue to be

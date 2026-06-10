@@ -68,8 +68,10 @@
 
   .section-title { font-size: 0.82rem; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
   .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 14px; }
   .grid-full { margin-bottom: 14px; }
-  .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+  .card { background: white; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
 
   .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
   .tab { padding: 7px 16px; border-radius: 8px; font-size: 0.81rem; font-weight: 600; cursor: pointer; border: 1.5px solid #e5e7eb; color: #6b7280; background: white; transition: all 0.15s; }
@@ -237,6 +239,21 @@
   .export-option { display:block; width:100%; padding:11px 16px; font-size:0.82rem; text-align:left; background:none; border:none; cursor:pointer; color:#374151; transition:background 0.1s; font-family:inherit; }
   .export-option:hover { background:#f3f4f6; color:#111827; }
   .export-option-divider { border:none; border-top:1px solid #f3f4f6; margin:0; }
+
+  /* ── Cetak Laporan: print-to-PDF via browser ── */
+  #printHeader { display: none; }
+  @media print {
+    body { background: white !important; }
+    .header, .filter-bar, .tabs, .qa-section, #qaSection, .modal-overlay, #homeScreen,
+    .qa-response, #qaHistory, .footer, .rmk-refine, .seg-actions, button, input, select { display: none !important; }
+    #printHeader { display: block !important; padding: 0 0 14px; border-bottom: 2px solid #1a1a2e; margin-bottom: 16px; }
+    #printHeader h1 { font-size: 1.25rem; margin: 0; color: #1a1a2e; }
+    #printHeader .pmeta { font-size: 0.78rem; color: #6b7280; margin-top: 4px; }
+    .card, .kpi-card, .alert { box-shadow: none !important; border: 1px solid #d1d5db !important; break-inside: avoid; }
+    .grid-2, .grid-3, .grid-4 { break-inside: avoid; }
+    .container { padding: 0 !important; max-width: none !important; }
+    canvas { max-width: 100% !important; }
+  }
   /* Data sources modal */
   .ds-modal { background:white; border-radius:16px; padding:28px 32px; width:820px; max-width:95vw; max-height:88vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
   /* Footer link */
@@ -365,6 +382,11 @@
   <div class="home-foot"><button onclick="goView('everything')">atau tampilkan semua →</button></div>
 </div>
 
+<div id="printHeader">
+  <h1>ADC Clinic — Laporan Penjualan &amp; Pasien</h1>
+  <div class="pmeta" id="printMeta">—</div>
+</div>
+
 <div class="header" id="appHeader">
   <div style="display:flex;align-items:center;gap:12px;min-width:0;">
     <button class="goal-back" onclick="goHome()">← Beranda</button>
@@ -382,6 +404,8 @@
         <hr class="export-option-divider">
         <button class="export-option" onclick="exportAllPatients();closeExportMenu()">👥 Semua Pasien (dengan telepon)</button>
         <button class="export-option" onclick="exportProductsCSV();closeExportMenu()">🛍️ Produk &amp; Layanan</button>
+        <hr class="export-option-divider">
+        <button class="export-option" onclick="printReport()">🖨️ Cetak Laporan (PDF)</button>
       </div>
     </div>
     <button class="export-btn" onclick="showExecutiveSummary()" style="margin-left:4px;">📄 Ringkasan</button>
@@ -495,11 +519,11 @@
     <div class="grid-2">
       <div class="card">
         <div class="section-title">Pendapatan Bulanan + Garis Tren</div>
-        <canvas id="chartMonthly" height="220"></canvas>
+        <canvas id="chartMonthly"></canvas>
       </div>
       <div class="card">
         <div class="section-title">SpDVE vs SpGK — Pembagian Bulanan</div>
-        <canvas id="chartOutletMonthly" height="220"></canvas>
+        <canvas id="chartOutletMonthly"></canvas>
         <p class="note">Pembagian klinik dari CSV <strong>Collection by Invoice</strong> (kolom outlet per-invoice).</p>
       </div>
     </div>
@@ -513,7 +537,7 @@
       </div>
       <div class="card">
         <div class="section-title">Pendapatan per Hari</div>
-        <canvas id="chartDow" height="240"></canvas>
+        <canvas id="chartDow"></canvas>
       </div>
     </div>
     <div class="card grid-full" style="margin-bottom:14px;">
@@ -525,12 +549,12 @@
     <div class="grid-2">
       <div class="card">
         <div class="section-title">Pendapatan: Collection vs Sales vs Invoice</div>
-        <canvas id="chartSalesCompare" height="220"></canvas>
+        <canvas id="chartSalesCompare"></canvas>
         <p class="note">Collection &amp; Sales dari CSV <strong>Item Sold by Collection/Sales</strong>; Invoice dari <strong>Collection by Invoice</strong>.</p>
       </div>
       <div class="card">
         <div class="section-title">Pendapatan per Kategori (basis Collection)</div>
-        <canvas id="chartCat" height="220"></canvas>
+        <canvas id="chartCat"></canvas>
         <p class="note">Dari berkas ringkasan <strong>Item Sold by Collection</strong>.</p>
       </div>
     </div>
@@ -555,6 +579,11 @@
     <div class="card grid-full">
       <div class="section-title">Semua Produk & Layanan — 15 Teratas berdasarkan Pendapatan</div>
       <div id="grid-all" style="margin-top:10px;"></div>
+    </div>
+    <div class="card grid-full">
+      <div class="section-title" style="color:#dc2626;">📉 Peringatan Dini — Produk Menurun &amp; Berhenti Terjual</div>
+      <div id="productTrends" style="margin-top:10px;"><span style="color:#9ca3af;font-size:0.8rem;">Memuat…</span></div>
+      <p class="note">Dihitung dari invoice pasien terdata (MRN). Bulan berjalan yang belum lengkap tidak ikut dibandingkan.</p>
     </div>
   </div>
 
@@ -595,12 +624,12 @@
     <div class="grid-2">
       <div class="card">
         <div class="section-title">Pasien Baru vs Kembali per Bulan</div>
-        <canvas id="chartNewLoyal" height="220"></canvas>
+        <canvas id="chartNewLoyal"></canvas>
         <p class="note" id="newReturningNote">Baru vs kembali dari MRN invoice (prefiks registrasi EM-YYMM).</p>
       </div>
       <div class="card">
         <div class="section-title">Frekuensi Kunjungan Pasien</div>
-        <canvas id="chartVisitDist" height="220"></canvas>
+        <canvas id="chartVisitDist"></canvas>
         <p class="note">Frekuensi kunjungan dari jumlah header invoice per MRN.</p>
       </div>
     </div>
@@ -826,7 +855,7 @@
 
     <div class="card">
       <div class="section-title">Jumlah Transaksi Dokter</div>
-      <canvas id="chartDoc" height="260"></canvas>
+      <canvas id="chartDoc"></canvas>
     </div>
   </div>
 
@@ -904,27 +933,25 @@
       <p class="note" style="margin-top:10px;">Perkiraan adalah rata-rata sederhana dari data yang dimuat. Sesuaikan target untuk melihat kinerja bulanan yang dibutuhkan pada sisa tahun. Gunakan bersama perbandingan YoY untuk penetapan target yang realistis.</p>
     </div>
 
-    <div class="grid-2" style="margin-bottom:14px;">
+    <div class="grid-4">
       <div class="card">
-        <div class="section-title">Pendapatan Tahunan (2022–2026)</div>
-        <canvas id="chartYearRev" height="220"></canvas>
-        <p style="font-size:0.72rem;color:#6b7280;margin-top:8px;">* 2026 = Jan–May only. 2026 run-rate (annualised from Jan–Apr avg): <strong>Rp 31.9B</strong> — up +6.0% vs 2025</p>
+        <div class="section-title">Pendapatan Tahunan</div>
+        <canvas id="chartYearRev"></canvas>
+        <p style="font-size:0.68rem;color:#9ca3af;margin-top:6px;">* 2026 = Jan–Mei saja. Run-rate: Rp 31.9B (+6% vs 2025)</p>
       </div>
       <div class="card">
-        <div class="section-title">Pengunjung Unik per Tahun</div>
-        <canvas id="chartYearPat" height="220"></canvas>
-        <p style="font-size:0.72rem;color:#6b7280;margin-top:8px;">* 2026 = Jan–May only. 1,967 unique visitors in 5 months vs 3,269 in all of 2025.</p>
-      </div>
-    </div>
-    <div class="grid-2" style="margin-bottom:14px;">
-      <div class="card">
-        <div class="section-title">Registrasi Pasien Baru per Tahun</div>
-        <canvas id="chartYearNew" height="220"></canvas>
-        <p style="font-size:0.72rem;color:#6b7280;margin-top:8px;">Derived from MRN prefix (EM-YYMM). * 2026 Jan–May: 659 new registrations.</p>
+        <div class="section-title">Pengunjung Unik</div>
+        <canvas id="chartYearPat"></canvas>
+        <p style="font-size:0.68rem;color:#9ca3af;margin-top:6px;">* 2026 = Jan–Mei saja. 1.967 pengunjung.</p>
       </div>
       <div class="card">
-        <div class="section-title">Tren Nilai Pesanan Rata-rata</div>
-        <canvas id="chartYearAOV" height="220"></canvas>
+        <div class="section-title">Registrasi Pasien Baru</div>
+        <canvas id="chartYearNew"></canvas>
+        <p style="font-size:0.68rem;color:#9ca3af;margin-top:6px;">* 2026 Jan–Mei: 659 registrasi baru.</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Tren AOV</div>
+        <canvas id="chartYearAOV"></canvas>
       </div>
     </div>
     <div class="card" style="margin-bottom:14px;">
@@ -949,7 +976,7 @@
     </div>
     <div class="card">
       <div class="section-title">Pengecualian Voucher Kredit per Tahun</div>
-      <canvas id="chartYearCredit" height="160"></canvas>
+      <canvas id="chartYearCredit"></canvas>
       <p style="font-size:0.72rem;color:#6b7280;margin-top:8px;">Total excluded across all years: <strong>Rp 2,401,278,967</strong> (208 invoices). Credit volume growing — 2025 full year Rp 1.04B, 2026 Jan–May already Rp 1.01B.</p>
     </div>
   </div>
@@ -1061,10 +1088,17 @@
       </div>
       <div class="qa-response" id="qaResponse">
         <div class="qa-response-header">
-          <span>🤖 Claude's Answer</span>
+          <span>🤖 Jawaban Claude</span>
           <span class="qa-response-close" onclick="document.getElementById('qaResponse').classList.remove('visible')">✕</span>
         </div>
         <div id="qaResponseText"></div>
+      </div>
+      <div id="qaHistory" style="margin-top:12px;display:none;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:0.70rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;">🕘 Riwayat Pertanyaan</span>
+          <button onclick="clearQaLog()" style="background:none;border:none;color:#9ca3af;font-size:0.72rem;cursor:pointer;">Hapus riwayat</button>
+        </div>
+        <div id="qaHistoryList"></div>
       </div>
     </div>
   </div>
@@ -1895,7 +1929,7 @@ async function submitQ(){
   // Pseudonymize all names / MRNs / phones before anything leaves the browser.
   refreshPiiMap();
   const safeUserMsg=redactPII(userMsg);
-  const safeSystem='Selalu jawab dalam Bahasa Indonesia yang jelas dan ringkas.\n\n'+redactPII(getQASystem());
+  const safeSystem='Selalu jawab dalam Bahasa Indonesia yang jelas dan ringkas. Akhiri setiap jawaban dengan dua saran pertanyaan lanjutan yang relevan, masing-masing di baris baru diawali "Lanjutan:".\n\n'+redactPII(getQASystem());
 
   // Cowork bridge takes priority
   if(typeof window.sendPrompt==='function'){
@@ -1954,12 +1988,62 @@ async function submitQ(){
       else respText.innerHTML='<span style="color:#ef4444;">❌ Kesalahan API ('+res.status+'): '+msg+'</span>';
     }else{
       const data=await res.json();
-      respText.innerHTML=renderMd(restorePII(data?.content?.[0]?.text||'Tidak ada respons.'));
+      const answer=restorePII(data?.content?.[0]?.text||'Tidak ada respons.');
+      respText.innerHTML=renderMd(answer);
+      logQA(q, answer);
     }
   }catch(e){
     respText.innerHTML='<span style="color:#ef4444;">❌ Kesalahan jaringan. Pastikan dasbor dibuka lewat aplikasi (localhost), bukan sebagai berkas file://.</span>';
   }
   btn.textContent='Tanya Claude ↗';btn.disabled=false;
+}
+
+// ── Q&A HISTORY (localStorage — stays on this machine, like saved segments) ──
+function getQaLog(){ try{ return JSON.parse(localStorage.getItem('adc_qa_log'))||[]; }catch(e){ return []; } }
+function logQA(q, answer){
+  const log=getQaLog();
+  log.unshift({q:q, a:answer, ts:Date.now()});
+  try{ localStorage.setItem('adc_qa_log', JSON.stringify(log.slice(0,20))); }catch(e){}
+  renderQaHistory();
+}
+function clearQaLog(){
+  if(!confirm('Hapus semua riwayat pertanyaan?'))return;
+  try{ localStorage.removeItem('adc_qa_log'); }catch(e){}
+  renderQaHistory();
+}
+function showQaLogItem(i){
+  const item=getQaLog()[i]; if(!item)return;
+  document.getElementById('qaResponseText').innerHTML=renderMd(item.a);
+  const respDiv=document.getElementById('qaResponse');
+  respDiv.classList.add('visible');
+  respDiv.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function renderQaHistory(){
+  const box=document.getElementById('qaHistory'), list=document.getElementById('qaHistoryList');
+  if(!box||!list)return;
+  const log=getQaLog();
+  if(!log.length){ box.style.display='none'; return; }
+  box.style.display='block';
+  list.innerHTML=log.map((it,i)=>{
+    const d=new Date(it.ts);
+    const when=d.toLocaleDateString('id-ID',{day:'numeric',month:'short'})+' '+d.toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+    return '<div onclick="showQaLogItem('+i+')" style="cursor:pointer;padding:7px 10px;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:6px;font-size:0.78rem;color:#374151;display:flex;justify-content:space-between;gap:10px;background:white;" onmouseover="this.style.borderColor=\'#c7d2fe\'" onmouseout="this.style.borderColor=\'#e5e7eb\'">'
+      + '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(it.q)+'</span>'
+      + '<span style="color:#9ca3af;white-space:nowrap;flex-shrink:0;">'+when+'</span></div>';
+  }).join('');
+}
+document.addEventListener('DOMContentLoaded', renderQaHistory);
+
+// ── CETAK LAPORAN (print-to-PDF) ─────────────────────────────────────────────
+function printReport(){
+  closeExportMenu();
+  const meta=document.getElementById('printMeta');
+  if(meta){
+    const range=(typeof D_META!=='undefined'&&D_META?.monthRange)?idMonth(D_META.monthRange)+(D_META.dataYear?' '+D_META.dataYear:''):'';
+    const today=new Date().toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'});
+    meta.textContent='Periode data: '+(range||'—')+' · Dicetak: '+today+' · Sumber: Neosoft POS Export';
+  }
+  window.print();
 }
 
 // ── EXPORT DROPDOWN ──────────────────────────────────────────────────────────

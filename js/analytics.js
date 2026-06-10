@@ -574,3 +574,92 @@ function buildInsightCards(){
     box.appendChild(card);
   });
 }
+
+// ── PRODUCT TRENDS: DECLINING & ZERO-SALES (early warning) ──────────────────
+// Aggregates dated treatment lines from patientProfiles into per-month product
+// revenue, then flags products losing momentum or gone silent. The current
+// partial month (label ends with *) is excluded from the comparison.
+function buildProductTrends(){
+  const box = document.getElementById('productTrends');
+  if(!box) return;
+
+  const profiles = D.patientProfiles || [];
+  if(!profiles.length){
+    box.innerHTML = '<span style="color:#9ca3af;font-size:0.8rem;">Belum ada data perawatan bertanggal. Tambahkan CSV Neosoft ke folder "Raw CSVs" lalu segarkan.</span>';
+    return;
+  }
+
+  // Per product (item|outlet) revenue per month (YYYY-MM)
+  const byProduct = {};
+  const monthSet = new Set();
+  profiles.forEach(p => (p.treatments||[]).forEach(t => {
+    if(!t.date || !t.item) return;
+    const mk = t.date.slice(0,7);
+    monthSet.add(mk);
+    const key = t.item + '|' + (t.outlet||'');
+    (byProduct[key] = byProduct[key] || {item:t.item, outlet:t.outlet||'', rev:{}}).rev[mk] = (byProduct[key].rev[mk]||0) + (t.spend||0);
+  }));
+
+  const months = [...monthSet].sort();
+  const lastLabel = D.monthly?.[D.monthly.length-1]?.month || '';
+  const isPartial = lastLabel.includes('*');
+  const cmpMonths = isPartial ? months.slice(0,-1) : months;   // exclude partial month
+  if(cmpMonths.length < 2){
+    box.innerHTML = '<span style="color:#9ca3af;font-size:0.8rem;">Perlu minimal 2 bulan penuh untuk membandingkan tren produk.</span>';
+    return;
+  }
+
+  const lastFull = cmpMonths[cmpMonths.length-1];
+  const baseMonths = cmpMonths.slice(0,-1);
+
+  const declining = [], silent = [];
+  Object.values(byProduct).forEach(pr => {
+    const recent = pr.rev[lastFull] || 0;
+    const baseTotal = baseMonths.reduce((s,m)=>s+(pr.rev[m]||0),0);
+    const baseAvg = baseTotal / baseMonths.length;
+    if(baseAvg >= 3000000 && recent === 0){
+      silent.push({...pr, baseAvg, alsoZeroNow: isPartial && !(pr.rev[months[months.length-1]]>0)});
+    } else if(baseAvg >= 5000000 && recent < baseAvg*0.7){
+      declining.push({...pr, baseAvg, recent, dropPct: (recent-baseAvg)/baseAvg*100});
+    }
+  });
+  declining.sort((a,b)=>(b.baseAvg-b.recent)-(a.baseAvg-a.recent));
+  silent.sort((a,b)=>b.baseAvg-a.baseAvg);
+
+  const lastFullLabel = idMonth(new Date(lastFull+'-01').toLocaleDateString('en-US',{month:'long'}));
+  const outletTag = o => o ? ' <span class="doc-tag '+(o.toLowerCase().includes('gk')?'spgk':'spdve')+'">'+escHtml(o)+'</span>' : '';
+
+  const declRows = declining.slice(0,12).map(p =>
+    '<tr style="border-bottom:1px solid #f3f4f6;">'
+    + '<td style="padding:6px 8px;">'+escHtml(p.item)+outletTag(p.outlet)+'</td>'
+    + '<td style="padding:6px 8px;text-align:right;">'+rp(Math.round(p.baseAvg),2)+'</td>'
+    + '<td style="padding:6px 8px;text-align:right;">'+rp(p.recent,2)+'</td>'
+    + '<td style="padding:6px 8px;text-align:right;"><span class="mom down">'+p.dropPct.toFixed(0)+'%</span></td>'
+    + '</tr>').join('');
+
+  const silentRows = silent.slice(0,12).map(p =>
+    '<tr style="border-bottom:1px solid #f3f4f6;">'
+    + '<td style="padding:6px 8px;">'+escHtml(p.item)+outletTag(p.outlet)+'</td>'
+    + '<td style="padding:6px 8px;text-align:right;">'+rp(Math.round(p.baseAvg),2)+'/bln</td>'
+    + '<td style="padding:6px 8px;text-align:right;color:#dc2626;font-weight:700;">Rp 0</td>'
+    + '</tr>').join('');
+
+  const tbl = (head, rows) =>
+    '<table style="width:100%;border-collapse:collapse;font-size:0.78rem;">'
+    + '<thead><tr style="border-bottom:2px solid #e5e7eb;color:#6b7280;text-align:left;">'+head+'</tr></thead>'
+    + '<tbody>'+rows+'</tbody></table>';
+
+  box.innerHTML =
+    '<div class="grid-2" style="margin-bottom:0;">'
+    + '<div>'
+    +   '<div style="font-size:0.72rem;font-weight:700;color:#d97706;margin-bottom:6px;">🟡 MENURUN — pendapatan '+lastFullLabel+' turun ≥30% vs rata-rata sebelumnya ('+declining.length+')</div>'
+    +   (declining.length ? tbl('<th style="padding:6px 8px;">Produk</th><th style="padding:6px 8px;text-align:right;">Rata-rata/bln</th><th style="padding:6px 8px;text-align:right;">'+lastFullLabel+'</th><th style="padding:6px 8px;text-align:right;">Δ</th>', declRows)
+      : '<span style="color:#059669;font-size:0.8rem;">Tidak ada produk yang menurun signifikan. 🎉</span>')
+    + '</div>'
+    + '<div>'
+    +   '<div style="font-size:0.72rem;font-weight:700;color:#dc2626;margin-bottom:6px;">🔴 BERHENTI TERJUAL — Rp 0 di '+lastFullLabel+' padahal sebelumnya laku ('+silent.length+')</div>'
+    +   (silent.length ? tbl('<th style="padding:6px 8px;">Produk</th><th style="padding:6px 8px;text-align:right;">Rata-rata sebelumnya</th><th style="padding:6px 8px;text-align:right;">'+lastFullLabel+'</th>', silentRows)
+      : '<span style="color:#059669;font-size:0.8rem;">Semua produk yang biasa laku masih terjual. 🎉</span>')
+    + '</div>'
+    + '</div>';
+}
