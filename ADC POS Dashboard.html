@@ -1,0 +1,2093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ADC POS Intelligence Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/theme/mermaid.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
+<script src="js/core.js"></script>
+<script src="js/segments.js"></script>
+<script src="js/remarketing.js"></script>
+<script src="js/analytics.js"></script>
+<script src="js/query.js"></script>
+<script src="js/ui.js"></script>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f6fa; color: #1a1a2e; }
+
+  .header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: white; padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 1.35rem; font-weight: 700; letter-spacing: -0.3px; }
+  .header .meta { font-size: 0.76rem; opacity: 0.65; margin-top: 3px; }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+  .badge { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 12px; font-size: 0.74rem; }
+  .export-btn { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.28); color: white; border-radius: 8px; padding: 7px 14px; font-size: 0.80rem; cursor: pointer; font-weight: 600; transition: all 0.15s; }
+  .export-btn:hover { background: rgba(255,255,255,0.22); }
+
+  .filter-bar { background: white; border-bottom: 1px solid #e5e7eb; padding: 10px 28px; display: flex; gap: 28px; align-items: center; flex-wrap: wrap; position: sticky; top: 0; z-index: 10; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+  .filter-group { display: flex; align-items: center; gap: 8px; }
+  .filter-label { font-size: 0.67rem; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; }
+  .fchip { padding: 5px 13px; border-radius: 20px; font-size: 0.77rem; font-weight: 600; cursor: pointer; border: 1.5px solid #e5e7eb; color: #6b7280; background: white; transition: all 0.15s; }
+  .fchip:hover:not(.active) { border-color: #9ca3af; color: #374151; }
+  .fchip.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+  .fchip.spdve.active { background: #4f46e5; border-color: #4f46e5; }
+  .fchip.spgk.active { background: #10b981; border-color: #10b981; }
+
+  .container { padding: 18px 24px; max-width: 1400px; margin: 0 auto; }
+
+  .kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+  .kpi-card { background: white; border-radius: 12px; padding: 15px 17px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); border-left: 4px solid #4f46e5; }
+  .kpi-card.green  { border-left-color: #10b981; }
+  .kpi-card.blue   { border-left-color: #3b82f6; }
+  .kpi-card.orange { border-left-color: #f59e0b; }
+  .kpi-card.teal   { border-left-color: #10b981; }
+  .kpi-label { font-size: 0.67rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+  .kpi-value { font-size: 1.15rem; font-weight: 700; color: #111827; line-height: 1.2; }
+  .kpi-sub { font-size: 0.68rem; color: #9ca3af; margin-top: 4px; }
+
+  .credit-bar { background: #fffbeb; border: 1px solid #f59e0b; border-radius: 10px; padding: 11px 18px; margin-bottom: 14px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; font-size: 0.80rem; color: #78350f; }
+  .credit-bar strong { color: #92400e; }
+  .credit-ok { color: #059669; font-weight: 600; }
+
+  .alerts { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+  .alert { border-radius: 10px; padding: 11px 14px; font-size: 0.80rem; display: flex; align-items: flex-start; gap: 8px; flex: 1; min-width: 190px; }
+  .alert.warning { background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; }
+  .alert.danger  { background: #fef2f2; border: 1px solid #ef4444; color: #991b1b; }
+  .alert.success { background: #f0fdf4; border: 1px solid #10b981; color: #065f46; }
+  .alert.info    { background: #eff6ff; border: 1px solid #3b82f6; color: #1e40af; }
+  .alert.purple  { background: #f5f3ff; border: 1px solid #7c3aed; color: #5b21b6; }
+  .alert-icon { font-size: 1rem; margin-top: 1px; }
+  .alert strong { display: block; margin-bottom: 2px; font-size: 0.82rem; }
+
+  /* Small Data Quality bar (high-priority) */
+  .dq-bar { background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 12px; margin:0 0 14px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:0.78rem; color:#475569; }
+  .dq-label { font-weight:700; color:#334155; margin-right:4px; }
+  .dq-pill { background:white; border:1px solid #cbd5e1; border-radius:999px; padding:2px 9px; font-size:0.74rem; white-space:nowrap; }
+
+  .section-title { font-size: 0.82rem; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+  .grid-full { margin-bottom: 14px; }
+  .card { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+  .tab { padding: 7px 16px; border-radius: 8px; font-size: 0.81rem; font-weight: 600; cursor: pointer; border: 1.5px solid #e5e7eb; color: #6b7280; background: white; transition: all 0.15s; }
+  .tab.active { background: #4f46e5; color: white; border-color: #4f46e5; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .outlet-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .outlet-name { font-size: 0.77rem; font-weight: 600; width: 95px; flex-shrink: 0; }
+  .outlet-bar-bg { flex: 1; background: #f3f4f6; border-radius: 6px; height: 12px; }
+  .outlet-bar-fg { height: 12px; border-radius: 6px; }
+  .outlet-val { font-size: 0.72rem; color: #6b7280; width: 140px; text-align: right; flex-shrink: 0; }
+
+  .doc-row { display: flex; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .doc-name { font-size: 0.77rem; color: #374151; width: 240px; flex-shrink: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .doc-tag { font-size: 0.66rem; padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
+  .doc-tag.spdve { background: #e0e7ff; color: #3730a3; }
+  .doc-tag.spgk  { background: #d1fae5; color: #065f46; }
+  .doc-bar-bg { flex: 1; background: #f3f4f6; border-radius: 4px; height: 8px; }
+  .doc-bar-fg { height: 8px; border-radius: 4px; }
+  .doc-bar-fg.spdve { background: linear-gradient(90deg, #4f46e5, #7c3aed); }
+  .doc-bar-fg.spgk  { background: linear-gradient(90deg, #10b981, #059669); }
+  .doc-rev { font-size: 0.72rem; color: #6b7280; width: 90px; text-align: right; flex-shrink: 0; }
+
+  .funnel { display: flex; align-items: stretch; margin-top: 12px; }
+  .funnel-step { flex: 1; padding: 20px 16px; text-align: center; }
+  .funnel-step:first-child { border-radius: 12px 0 0 12px; }
+  .funnel-step:last-child  { border-radius: 0 12px 12px 0; }
+  .f-active  { background: linear-gradient(135deg,#d1fae5,#a7f3d0); border: 2px solid #10b981; border-right: none; }
+  .f-lapsing { background: linear-gradient(135deg,#fffbeb,#fde68a); border: 2px solid #f59e0b; border-left: none; border-right: none; }
+  .f-dormant { background: linear-gradient(135deg,#fee2e2,#fca5a5); border: 2px solid #ef4444; border-left: none; }
+  .funnel-num { font-size: 2.2rem; font-weight: 800; line-height: 1; }
+  .funnel-lbl { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 6px; }
+  .funnel-def { font-size: 0.67rem; margin-top: 4px; opacity: 0.75; }
+  .funnel-badge { display: inline-block; font-size: 0.66rem; background: rgba(0,0,0,0.08); border-radius: 6px; padding: 2px 7px; margin-top: 8px; }
+
+  .scorecard { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-top: 12px; }
+  .sc-card { text-align: center; padding: 14px; background: #f9fafb; border-radius: 10px; border: 2px solid transparent; transition: border-color 0.15s; cursor: pointer; }
+  .sc-card:hover { border-color: #c7d2fe; }
+  .sc-card.selected { border-color: #4f46e5; box-shadow: 0 0 0 3px #e0e7ff; }
+  .sc-month { font-size: 0.70rem; color: #6b7280; margin-bottom: 4px; font-weight: 700; letter-spacing: 0.5px; }
+  .sc-rev   { font-size: 1.05rem; font-weight: 700; }
+  .sc-split { font-size: 0.68rem; margin-top: 3px; }
+  .sc-meta  { font-size: 0.68rem; color: #6b7280; }
+
+  .mom { display: inline-block; border-radius: 12px; padding: 2px 8px; font-size: 0.70rem; font-weight: 700; }
+  .mom.up      { background: #d1fae5; color: #065f46; }
+  .mom.down    { background: #fee2e2; color: #991b1b; }
+  .mom.neutral { background: #e0e7ff; color: #3730a3; }
+
+  .qa-section { background: white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 14px; }
+  .qa-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 13px; }
+  .chip { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 20px; padding: 5px 13px; font-size: 0.76rem; cursor: pointer; transition: all 0.15s; }
+  .chip:hover { background: #2563eb; color: white; }
+  .chip.green { background:#f0fdf4; color:#059669; border-color:#a7f3d0; }
+  .chip.green:hover { background:#059669; color:white; }
+  .chip.amber { background:#fffbeb; color:#d97706; border-color:#fcd34d; }
+  .chip.amber:hover { background:#d97706; color:white; }
+  .chip.purple { background:#f5f3ff; color:#7c3aed; border-color:#c4b5fd; }
+  .chip.purple:hover { background:#7c3aed; color:white; }
+  .qa-chip-group { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; }
+  .qa-chip-cat { font-size:0.60rem; font-weight:800; text-transform:uppercase; letter-spacing:0.8px; color:#9ca3af; white-space:nowrap; padding-right:4px; }
+  .qa-row { display: flex; gap: 10px; }
+  .qa-input { flex: 1; border: 1.5px solid #d1d5db; border-radius: 10px; padding: 10px 14px; font-size: 0.86rem; outline: none; transition: border-color 0.15s; }
+  .qa-input:focus { border-color: #4f46e5; }
+  .qa-btn { background: #4f46e5; color: white; border: none; border-radius: 10px; padding: 10px 20px; font-size: 0.86rem; cursor: pointer; font-weight: 600; white-space: nowrap; }
+  .qa-btn:hover { background: #4338ca; }
+
+  .gridjs-wrapper { border-radius: 8px !important; }
+  .gridjs-container { font-size: 0.79rem !important; }
+  .gridjs-th { background: #f9fafb !important; color: #374151 !important; font-size: 0.74rem !important; }
+
+  .note { font-size: 0.68rem; color: #9ca3af; margin-top: 8px; }
+  .footer { text-align: center; padding: 18px; font-size: 0.71rem; color: #9ca3af; }
+
+  /* ── Settings modal ── */
+  .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:100; align-items:center; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:white; border-radius:16px; padding:28px 32px; width:480px; max-width:95vw; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+  .modal h2 { font-size:1.05rem; font-weight:700; margin-bottom:6px; }
+  .modal p  { font-size:0.80rem; color:#6b7280; margin-bottom:18px; line-height:1.6; }
+  .modal input[type=password], .modal input[type=text] { width:100%; border:1.5px solid #d1d5db; border-radius:10px; padding:10px 14px; font-size:0.86rem; outline:none; margin-bottom:14px; font-family:monospace; }
+  .modal input:focus { border-color:#4f46e5; }
+  .modal-btns { display:flex; gap:10px; justify-content:flex-end; }
+  .modal-save { background:#4f46e5; color:white; border:none; border-radius:10px; padding:9px 22px; font-size:0.86rem; font-weight:600; cursor:pointer; }
+  .modal-save:hover { background:#4338ca; }
+  .modal-cancel { background:white; color:#6b7280; border:1.5px solid #e5e7eb; border-radius:10px; padding:9px 18px; font-size:0.86rem; cursor:pointer; }
+  .api-status { font-size:0.72rem; margin-bottom:6px; }
+  .api-status.ok  { color:#059669; }
+  .api-status.none { color:#9ca3af; }
+
+  /* ── AI response area ── */
+  .qa-response { display:none; margin-top:14px; background:#f8fafc; border:1.5px solid #e0e7ff; border-radius:12px; padding:16px 18px; font-size:0.84rem; line-height:1.7; color:#1e293b; white-space:pre-wrap; }
+  .qa-response.visible { display:block; }
+  .qa-response-header { font-size:0.70rem; font-weight:700; color:#4f46e5; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+  .qa-response-close { cursor:pointer; color:#9ca3af; font-size:1rem; line-height:1; }
+  .qa-response-close:hover { color:#374151; }
+  .qa-thinking { color:#9ca3af; font-style:italic; }
+  .settings-btn { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.28); color:white; border-radius:8px; padding:7px 14px; font-size:0.80rem; cursor:pointer; font-weight:600; transition:all 0.15s; }
+  .settings-btn:hover { background:rgba(255,255,255,0.22); }
+  .settings-btn.has-key { border-color:rgba(16,185,129,0.7); color:#6ee7b7; }
+  .data-refresh { font-size:0.72rem; margin-top:4px; }
+  .data-refresh.ok { color:#6ee7b7; }
+  .data-refresh.warn { color:#fcd34d; }
+  .data-refresh.err { color:#fca5a5; }
+  .data-refresh.loading { color:rgba(255,255,255,0.55); font-style:italic; }
+
+  /* ── Remarketing v2 ── */
+  .rmk-search { border:1.5px solid #d1d5db; border-radius:8px; padding:7px 12px; font-size:0.82rem; outline:none; width:220px; transition:border-color 0.15s; }
+  .rmk-search:focus { border-color:#4f46e5; }
+  .rmk-priority-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:14px; }
+  .rmk-pcard { background:white; border-radius:14px; padding:18px 18px 15px; box-shadow:0 1px 4px rgba(0,0,0,0.07); cursor:pointer; border:2.5px solid transparent; transition:all 0.18s; position:relative; overflow:hidden; }
+  .rmk-pcard::before { content:''; position:absolute; top:0; left:0; right:0; height:4px; border-radius:14px 14px 0 0; }
+  .rmk-pcard.dormant::before { background:#ef4444; }
+  .rmk-pcard.lapsing::before { background:#f59e0b; }
+  .rmk-pcard.active-lc::before { background:#10b981; }
+  .rmk-pcard.all-lc::before { background:#6366f1; }
+  .rmk-pcard:hover { transform:translateY(-2px); box-shadow:0 6px 20px rgba(0,0,0,0.10); }
+  .rmk-pcard.selected.dormant { border-color:#ef4444; background:#fef2f2; }
+  .rmk-pcard.selected.lapsing { border-color:#f59e0b; background:#fffbeb; }
+  .rmk-pcard.selected.active-lc { border-color:#10b981; background:#f0fdf4; }
+  .rmk-pcard.selected.all-lc { border-color:#6366f1; background:#eef2ff; }
+  .rmk-pcard-badge { font-size:0.62rem; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:7px; margin-top:3px; }
+  .rmk-pcard.dormant .rmk-pcard-badge { color:#dc2626; }
+  .rmk-pcard.lapsing .rmk-pcard-badge { color:#d97706; }
+  .rmk-pcard.active-lc .rmk-pcard-badge { color:#059669; }
+  .rmk-pcard.all-lc .rmk-pcard-badge { color:#4f46e5; }
+  .rmk-pcard-count { font-size:2.1rem; font-weight:800; color:#111827; line-height:1; margin-bottom:1px; }
+  .rmk-pcard-sublabel { font-size:0.69rem; color:#9ca3af; font-weight:500; margin-bottom:10px; }
+  .rmk-pcard-phone { font-size:0.79rem; font-weight:700; margin-bottom:4px; }
+  .rmk-pcard.dormant .rmk-pcard-phone { color:#dc2626; }
+  .rmk-pcard.lapsing .rmk-pcard-phone { color:#d97706; }
+  .rmk-pcard.active-lc .rmk-pcard-phone { color:#059669; }
+  .rmk-pcard.all-lc .rmk-pcard-phone { color:#4f46e5; }
+  .rmk-pcard-hint { font-size:0.65rem; color:#9ca3af; line-height:1.4; }
+  .rmk-pcard-check { display:none; position:absolute; top:12px; right:12px; width:20px; height:20px; border-radius:50%; align-items:center; justify-content:center; font-size:0.68rem; color:white; font-weight:700; }
+  .rmk-pcard.selected .rmk-pcard-check { display:flex; }
+  .rmk-pcard.selected.dormant .rmk-pcard-check { background:#ef4444; }
+  .rmk-pcard.selected.lapsing .rmk-pcard-check { background:#f59e0b; }
+  .rmk-pcard.selected.active-lc .rmk-pcard-check { background:#10b981; }
+  .rmk-pcard.selected.all-lc .rmk-pcard-check { background:#6366f1; }
+  .rmk-refine { background:white; border-radius:12px; padding:11px 18px; box-shadow:0 1px 4px rgba(0,0,0,0.07); margin-bottom:12px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  .rmk-refine-sep { width:1px; height:26px; background:#e5e7eb; flex-shrink:0; }
+  .rmk-result-bar { border-radius:10px; padding:12px 18px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; background:white; box-shadow:0 1px 4px rgba(0,0,0,0.06); border-left:4px solid #6366f1; transition:border-color 0.2s; }
+  .rmk-result-bar.dormant-mode { border-left-color:#ef4444; }
+  .rmk-result-bar.lapsing-mode { border-left-color:#f59e0b; }
+  .rmk-result-bar.active-mode { border-left-color:#10b981; }
+  /* Toggle switch */
+  .toggle-switch { position:relative; display:inline-block; width:38px; height:22px; }
+  .toggle-switch input { opacity:0; width:0; height:0; }
+  .toggle-slider { position:absolute; cursor:pointer; inset:0; background:#d1d5db; border-radius:22px; transition:0.2s; }
+  .toggle-slider:before { content:''; position:absolute; height:16px; width:16px; left:3px; bottom:3px; background:white; border-radius:50%; transition:0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+  .toggle-switch input:checked + .toggle-slider { background:#10b981; }
+  .toggle-switch input:checked + .toggle-slider:before { transform:translateX(16px); }
+  /* Q&A collapsible */
+  .qa-section-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .qa-toggle-btn { background:none; border:none; cursor:pointer; color:#4f46e5; font-size:0.78rem; font-weight:600; padding:4px 10px; border-radius:8px; transition:background 0.15s; }
+  .qa-toggle-btn:hover { background:#eff6ff; }
+  .qa-body { overflow:hidden; transition:max-height 0.35s ease; max-height:700px; }
+  .qa-body.collapsed { max-height:0; }
+  /* Export dropdown */
+  .export-wrap { position:relative; display:inline-block; }
+  .export-menu { display:none; position:absolute; top:calc(100% + 6px); right:0; background:white; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 8px 28px rgba(0,0,0,0.14); min-width:210px; z-index:50; overflow:hidden; }
+  .export-menu.open { display:block; }
+  .export-option { display:block; width:100%; padding:11px 16px; font-size:0.82rem; text-align:left; background:none; border:none; cursor:pointer; color:#374151; transition:background 0.1s; font-family:inherit; }
+  .export-option:hover { background:#f3f4f6; color:#111827; }
+  .export-option-divider { border:none; border-top:1px solid #f3f4f6; margin:0; }
+  /* Data sources modal */
+  .ds-modal { background:white; border-radius:16px; padding:28px 32px; width:820px; max-width:95vw; max-height:88vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2); }
+  /* Footer link */
+  .footer-link { color:#9ca3af; text-decoration:none; cursor:pointer; transition:color 0.15s; }
+  .footer-link:hover { color:#4f46e5; }
+  /* Scorecard click hint */
+  .sc-hint { font-size:0.60rem; color:#c7d2fe; margin-top:5px; letter-spacing:0.3px; }
+  /* ── Patient Detail Modal ── */
+  .pt-modal { background:white; border-radius:16px; padding:26px 30px; width:700px; max-width:96vw; max-height:90vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.22); }
+  .pt-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; }
+  .pt-name { font-size:1.08rem; font-weight:800; color:#111827; }
+  .pt-sub  { font-size:0.74rem; color:#9ca3af; margin-top:3px; }
+  .pt-badge { border-radius:20px; padding:4px 12px; font-size:0.72rem; font-weight:700; letter-spacing:0.3px; }
+  .pt-badge.dormant { background:#fef2f2; color:#dc2626; border:1px solid #fca5a5; }
+  .pt-badge.lapsing { background:#fffbeb; color:#d97706; border:1px solid #fcd34d; }
+  .pt-badge.active  { background:#f0fdf4; color:#059669; border:1px solid #6ee7b7; }
+  .pt-kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px; }
+  .pt-kpi  { background:#f9fafb; border-radius:10px; padding:12px 14px; text-align:center; }
+  .pt-kpi-v { font-size:1.05rem; font-weight:800; color:#111827; line-height:1.2; }
+  .pt-kpi-l { font-size:0.61rem; color:#9ca3af; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
+  .pt-tx-row { display:flex; align-items:center; gap:12px; padding:9px 0; border-bottom:1px solid #f3f4f6; }
+  .pt-tx-num  { font-size:0.68rem; color:#d1d5db; font-weight:700; width:18px; text-align:right; flex-shrink:0; }
+  .pt-tx-name { flex:1; font-size:0.82rem; color:#374151; }
+  .pt-tx-bar-bg { height:5px; background:#f3f4f6; border-radius:3px; margin-top:4px; }
+  .pt-tx-bar-fg { height:5px; border-radius:3px; background:#4f46e5; }
+  .pt-tx-qty   { font-size:0.75rem; color:#6b7280; width:44px; text-align:center; flex-shrink:0; }
+  .pt-tx-spend { font-size:0.82rem; font-weight:700; color:#111827; width:88px; text-align:right; flex-shrink:0; }
+  .pt-tx-pct   { font-size:0.65rem; color:#9ca3af; font-weight:400; display:block; }
+  .pt-footer   { margin-top:16px; font-size:0.78rem; color:#6b7280; line-height:2; border-top:1px solid #f3f4f6; padding-top:14px; }
+  .pt-footer strong { color:#374151; }
+  .pt-view-btn { background:#f3f4f6; color:#374151; border:none; border-radius:6px; padding:4px 10px; font-size:0.72rem; font-weight:600; cursor:pointer; white-space:nowrap; transition:all 0.12s; }
+  .pt-view-btn:hover { background:#4f46e5; color:white; }
+  /* Cross-product dropdown */
+  .cross-option { padding:9px 14px; font-size:0.82rem; cursor:pointer; color:#374151; border-bottom:1px solid #f9fafb; }
+  .cross-option:last-child { border-bottom:none; }
+  .cross-option:hover { background:#f3f4f6; color:#111827; }
+  .cross-chip { background:#e0e7ff; color:#3730a3; border-radius:20px; padding:5px 10px 5px 14px; font-size:0.76rem; font-weight:600; display:inline-flex; align-items:center; gap:6px; }
+  .cross-chip-x { cursor:pointer; font-size:1rem; opacity:0.5; line-height:1; transition:opacity 0.1s; }
+  .cross-chip-x:hover { opacity:1; }
+
+  /* Insight cards */
+  .insight-card {
+    background: #f8fafc;
+    border: 1px solid #e0e7ff;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.82rem;
+    line-height: 1.35;
+    border-left: 4px solid #4f46e5;
+  }
+  .insight-card.positive { border-left-color: #10b981; }
+  .insight-card.warning { border-left-color: #f59e0b; }
+  .insight-card.negative { border-left-color: #ef4444; }
+  .insight-card.purple { border-left-color: #7c3aed; }
+  .insight-card strong { color: #1e293b; }
+  .insight-card .ins-meta { font-size: 0.68rem; color: #64748b; margin-top: 4px; }
+  #insightCards .insight-header {
+    grid-column: 1 / -1;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+  .insight-ai-btn {
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 3px 9px;
+    font-size: 0.68rem;
+    cursor: pointer;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<style id="uiRedesign">
+  /* Intent-first view states */
+  #homeScreen{display:none;max-width:780px;margin:0 auto;padding:46px 20px 64px;}
+  body.view-home #homeScreen{display:block;}
+  body.view-home #appHeader,body.view-home .filter-bar,body.view-home .container,body.view-home .footer{display:none!important;}
+  .tabs{display:none!important;}
+  body.view-goal:not(.show-filters) .filter-bar{display:none!important;}
+  body:not(.show-chrome) .kpi-row,
+  body:not(.show-chrome) .credit-bar,
+  body:not(.show-chrome) #dqBar,
+  body:not(.show-chrome) .alerts,
+  body:not(.show-chrome) #insightCards{display:none!important;}
+  /* Home screen */
+  .home-q{text-align:center;margin:0 auto 30px;max-width:500px;}
+  .home-q h1{font-size:1.7rem;font-weight:800;color:#111827;margin:0 0 8px;letter-spacing:-0.01em;}
+  .home-q p{font-size:0.95rem;color:#6b7280;margin:0;}
+  .goal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;}
+  .goal-card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px 18px;cursor:pointer;transition:border-color .15s,transform .15s,box-shadow .15s;}
+  .goal-card:hover{border-color:#4f46e5;transform:translateY(-2px);box-shadow:0 8px 22px rgba(79,70,229,0.09);}
+  .goal-card .gc-ico{font-size:1.55rem;line-height:1;}
+  .goal-card .gc-t{font-size:1.0rem;font-weight:700;color:#111827;margin:11px 0 4px;}
+  .goal-card .gc-s{font-size:0.8rem;color:#6b7280;line-height:1.45;}
+  .home-brand{display:flex;align-items:center;justify-content:center;gap:8px;font-size:0.82rem;font-weight:600;color:#9ca3af;margin-bottom:26px;}
+  .home-foot{text-align:center;margin-top:26px;}
+  .home-foot button{background:none;border:none;color:#6b7280;font-size:0.85rem;cursor:pointer;border-bottom:1px solid #d1d5db;padding:0 0 1px;}
+  .home-foot button:hover{color:#4f46e5;border-color:#4f46e5;}
+  /* Compact goal header */
+  .goal-back{background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:6px 12px;font-size:0.82rem;font-weight:600;color:#374151;cursor:pointer;flex-shrink:0;}
+  .goal-back:hover{background:#f3f4f6;}
+</style>
+
+<div id="homeScreen">
+  <div class="home-brand"><span>🏥</span> ADC Clinic · Intelijen Penjualan</div>
+  <div class="home-q">
+    <h1>Apa yang ingin Anda lihat hari ini?</h1>
+    <p>Pilih tujuan — hanya bagian yang Anda butuhkan yang akan terbuka.</p>
+  </div>
+  <div class="goal-grid">
+    <div class="goal-card" onclick="goView('revenue')"><div class="gc-ico">📈</div><div class="gc-t">Pendapatan</div><div class="gc-s">Tren, klinik, perkiraan vs target</div></div>
+    <div class="goal-card" onclick="goView('retention')"><div class="gc-ico">👥</div><div class="gc-t">Tarik pasien kembali</div><div class="gc-s">Jadwal kembali, win-back, WhatsApp</div></div>
+    <div class="goal-card" onclick="goView('lookup')"><div class="gc-ico">🔍</div><div class="gc-t">Cari pasien</div><div class="gc-s">Riwayat perawatan per tanggal</div></div>
+    <div class="goal-card" onclick="goView('services')"><div class="gc-ico">🩺</div><div class="gc-t">Perawatan & dokter</div><div class="gc-s">Layanan teratas, kinerja dokter</div></div>
+    <div class="goal-card" onclick="goView('patients')"><div class="gc-ico">📊</div><div class="gc-t">Tren pasien</div><div class="gc-s">Retensi, kohort, frekuensi kunjungan</div></div>
+    <div class="goal-card" onclick="goView('ask')"><div class="gc-ico">💬</div><div class="gc-t">Tanya data</div><div class="gc-s">Pencarian bahasa biasa atau AI</div></div>
+  </div>
+  <div class="home-foot"><button onclick="goView('everything')">atau tampilkan semua →</button></div>
+</div>
+
+<div class="header" id="appHeader">
+  <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+    <button class="goal-back" onclick="goHome()">← Beranda</button>
+    <div style="min-width:0;">
+      <h1 id="goalTitle" style="font-size:1.15rem;margin:0;">Dasbor</h1>
+      <div class="data-refresh loading" id="dataRefreshStatus" style="margin-top:2px;">Memeriksa data CSV terbaru…</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button id="refreshDataBtn" onclick="refreshData()" style="padding:5px 12px;border:1px solid #d1d5db;border-radius:7px;background:#fff;color:#374151;font-size:0.76rem;font-weight:600;cursor:pointer;">↻ Segarkan</button>
+    <div class="export-wrap">
+      <button class="export-btn" onclick="toggleExportMenu(event)">⬇ Ekspor ▾</button>
+      <div class="export-menu" id="exportMenu">
+        <button class="export-option" onclick="exportCSV();closeExportMenu()">📅 Pendapatan Bulanan</button>
+        <hr class="export-option-divider">
+        <button class="export-option" onclick="exportAllPatients();closeExportMenu()">👥 Semua Pasien (dengan telepon)</button>
+        <button class="export-option" onclick="exportProductsCSV();closeExportMenu()">🛍️ Produk &amp; Layanan</button>
+      </div>
+    </div>
+    <button class="export-btn" onclick="showExecutiveSummary()" style="margin-left:4px;">📄 Ringkasan</button>
+    <button class="settings-btn" id="settingsBtn" onclick="openSettings()">⚙ Kunci AI</button>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <div class="filter-group">
+    <span class="filter-label">📅 Bulan <span style="font-size:0.60rem;opacity:0.65;font-weight:400;">(hanya KPI)</span></span>
+    <div class="filter-chips" id="monthChips">
+      <button class="fchip active" onclick="setMonth('all',this)">Semua</button>
+      <button class="fchip" onclick="setMonth('jan',this)">Januari</button>
+      <button class="fchip" onclick="setMonth('feb',this)">Februari</button>
+      <button class="fchip" onclick="setMonth('mar',this)">Maret</button>
+      <button class="fchip" onclick="setMonth('apr',this)">April</button>
+    </div>
+  </div>
+  <div class="filter-group">
+    <span class="filter-label">🏥 Klinik <span style="font-size:0.60rem;opacity:0.65;font-weight:400;">(hanya KPI)</span></span>
+    <div class="filter-chips" id="outletChips">
+      <button class="fchip active" onclick="setOutlet('all',this)">Semua Klinik</button>
+      <button class="fchip spdve" onclick="setOutlet('spdve',this)">adc SpDVE</button>
+      <button class="fchip spgk" onclick="setOutlet('spgk',this)">adc SpGK</button>
+    </div>
+  </div>
+
+  <!-- NEW: Period Comparison Toggle (Phase 2) -->
+  <div class="filter-group" style="margin-left:auto;">
+    <button id="yoyToggle" class="fchip" onclick="toggleYoYCompare(this)" style="font-weight:700;">📊 Bandingkan YoY (2025)</button>
+  </div>
+</div>
+
+<div id="loadingOverlay" style="position:fixed;inset:0;background:rgba(245,246,250,0.92);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;">
+  <div style="width:44px;height:44px;border:4px solid #e0e7ff;border-top-color:#4f46e5;border-radius:50%;animation:spin 0.75s linear infinite;"></div>
+  <div style="font-size:0.88rem;color:#6b7280;font-weight:600;">Memuat data dasbor…</div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg);}}</style>
+
+<div class="container">
+
+  <div class="kpi-row">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Pendapatan</div>
+      <div class="kpi-value" id="kpiRev">IDR 11.29B</div>
+      <div class="kpi-sub" id="kpiRevSub">Jan – Apr 2026</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Transaksi</div>
+      <div class="kpi-value" id="kpiTxns">4,493</div>
+      <div class="kpi-sub" id="kpiTxnsSub">Invoice unik</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">Nilai Pesanan Rata-rata</div>
+      <div class="kpi-value" id="kpiAov">IDR 2.51M</div>
+      <div class="kpi-sub">Per invoice</div>
+
+    </div>
+    <div class="kpi-card orange">
+      <div class="kpi-label">Kredit Dikecualikan</div>
+      <div class="kpi-value">IDR 1.01B</div>
+      <div class="kpi-sub">99 txn · di luar pendapatan</div>
+    </div>
+    <div class="kpi-card" style="border-left-color:#4f46e5;">
+      <div class="kpi-label">adc SpDVE</div>
+      <div class="kpi-value" id="kpiSpDVE">IDR 9.24B</div>
+      <div class="kpi-sub" id="kpiSpDVEPct">79.5% of total</div>
+    </div>
+    <div class="kpi-card teal">
+      <div class="kpi-label">adc SpGK</div>
+      <div class="kpi-value" id="kpiSpGK">IDR 2.38B</div>
+      <div class="kpi-sub" id="kpiSpGKPct">20.5% of total</div>
+    </div>
+  </div>
+
+  <div class="credit-bar">
+    <span>💳</span>
+    <span id="creditBarText"><strong>Credit excluded from all revenue figures:</strong> loading…</span>
+    <span id="creditBarRedemptions"></span>
+    <span id="creditBarPurchases"></span>
+    <span class="credit-ok">✓ All KPIs reflect cash revenue only</span>
+  </div>
+
+  <!-- Small Data Quality section (high-priority request) -->
+  <div id="dqBar" class="dq-bar">
+    <span class="dq-label">Data Quality</span>
+    <span id="dqFiles" class="dq-pill"></span>
+    <span id="dqPatients" class="dq-pill"></span>
+    <span id="dqPhone" class="dq-pill"></span>
+    <span id="dqCredit" class="dq-pill"></span>
+    <span id="dqFresh" class="dq-pill"></span>
+    <span id="dqIssues" class="dq-pill" style="background:#fef3c7;color:#92400e;"></span>
+  </div>
+
+  <div class="alerts" id="alertsContainer"></div>
+
+  <!-- NEW: Automated Insight Cards (Quick Win) -->
+  <div id="insightCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-bottom:14px;"></div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('revenue',event)">📊 Revenue</button>
+    <button class="tab" onclick="switchTab('products',event)">🛍️ Products</button>
+    <button class="tab" onclick="switchTab('patients',event)">👥 Patients</button>
+    <button class="tab" onclick="switchTab('operations',event)">⚙️ Operations</button>
+    <button class="tab" onclick="switchTab('remarketing',event)">📋 Remarketing</button>
+    <button class="tab" onclick="switchTab('trends',event)">📈 Yearly Trends</button>
+  </div>
+
+  <!-- ── REVENUE TAB ── -->
+  <div id="tab-revenue" class="tab-content active">
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title">Pendapatan Bulanan + Garis Tren</div>
+        <canvas id="chartMonthly" height="220"></canvas>
+      </div>
+      <div class="card">
+        <div class="section-title">SpDVE vs SpGK — Pembagian Bulanan</div>
+        <canvas id="chartOutletMonthly" height="220"></canvas>
+        <p class="note">Pembagian klinik dari CSV <strong>Collection by Invoice</strong> (kolom outlet per-invoice).</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title">Pangsa Pendapatan per Klinik</div>
+        <div style="margin-top:8px;" id="outletBarsContainer"></div>
+        <div style="max-height:180px;display:flex;justify-content:center;margin-top:14px;">
+          <canvas id="chartOutletDonut" height="180"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title">Pendapatan per Hari</div>
+        <canvas id="chartDow" height="240"></canvas>
+      </div>
+    </div>
+    <div class="card grid-full" style="margin-bottom:14px;">
+      <div class="section-title">Rincian Metode Pembayaran</div>
+      <div style="max-width:420px;margin:0 auto;">
+        <canvas id="chartPay" height="230"></canvas>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title">Pendapatan: Collection vs Sales vs Invoice</div>
+        <canvas id="chartSalesCompare" height="220"></canvas>
+        <p class="note">Collection &amp; Sales dari CSV <strong>Item Sold by Collection/Sales</strong>; Invoice dari <strong>Collection by Invoice</strong>.</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Pendapatan per Kategori (basis Collection)</div>
+        <canvas id="chartCat" height="220"></canvas>
+        <p class="note">Dari berkas ringkasan <strong>Item Sold by Collection</strong>.</p>
+      </div>
+    </div>
+    <div class="card grid-full">
+      <div class="section-title">Kartu Skor Bulanan — klik untuk memfilter per bulan</div>
+      <div class="scorecard" id="scorecard"></div>
+    </div>
+  </div>
+
+  <!-- ── PRODUCTS TAB ── -->
+  <div id="tab-products" class="tab-content">
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title" style="color:#4f46e5;">🔵 adc SpDVE — Layanan Teratas</div>
+        <div id="grid-spdve" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="color:#10b981;">🟢 adc SpGK — Layanan Teratas</div>
+        <div id="grid-spgk" style="margin-top:10px;"></div>
+      </div>
+    </div>
+    <div class="card grid-full">
+      <div class="section-title">Semua Produk & Layanan — 15 Teratas berdasarkan Pendapatan</div>
+      <div id="grid-all" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- ── PATIENTS TAB ── -->
+  <div id="tab-patients" class="tab-content">
+    <div class="card grid-full">
+      <div class="section-title">Status Siklus Hidup Pasien</div>
+      <div class="funnel" id="funnelContainer"></div>
+      <p class="note" style="text-align:center;margin-top:10px;" id="funnelNote">Siklus hidup pasien dari semua CSV <strong>Collection by Invoice</strong> + workbook historis bila tersedia.</p>
+      <p class="note" style="text-align:center;" id="customerCompileNote"></p>
+    </div>
+
+    <!-- NEW: RFM + Pareto (Quick Win) -->
+    <div class="card grid-full" id="rfmParetoCard" style="margin-bottom:14px;">
+      <div class="section-title">Segmen Nilai Pasien (RFM) + Konsentrasi Pendapatan (Pareto)</div>
+      <div id="rfmSegments" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:12px 0 16px;"></div>
+      <div class="grid-2" style="margin-top:8px;">
+        <div>
+          <div style="font-size:0.70rem;font-weight:700;color:#374151;margin-bottom:6px;">Pareto Curve — Cumulative Revenue by Patient Rank</div>
+          <canvas id="chartPareto" height="160"></canvas>
+          <p class="note" style="margin-top:6px;">Menunjukkan berapa % total pendapatan yang dihasilkan oleh X% pasien teratas.</p>
+        </div>
+        <div>
+          <div style="font-size:0.70rem;font-weight:700;color:#374151;margin-bottom:6px;">Top Patients by Lifetime Spend (with running %)</div>
+          <div id="paretoTable" style="max-height:210px;overflow:auto;border:1px solid #f3f4f6;border-radius:8px;"></div>
+        </div>
+      </div>
+      <p class="note" style="margin-top:8px;">RFM memakai Recency (hari sejak kunjungan terakhir), Frequency (jumlah kunjungan), dan Monetary (total belanja). Segmen diperbarui otomatis dengan data langsung.</p>
+    </div>
+
+    <!-- NEW: Cohort Retention (Phase 2) -->
+    <div class="card grid-full" style="margin-bottom:14px;">
+      <div class="section-title">Retensi Kohort — Pasien Dikelompokkan per Bulan Kunjungan Pertama</div>
+      <div id="cohortTable" style="margin-top:8px;"></div>
+      <p class="note" style="margin-top:8px;">Kohort diturunkan terutama dari prefiks registrasi MRN (EM-YYMM). "Kembali" = 2+ total kunjungan. "Aktif" = kunjungan terakhir dalam ~90 hari dari data terkini. Ini menunjukkan apakah retensi membaik untuk kelompok pasien baru.</p>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title">Pasien Baru vs Kembali per Bulan</div>
+        <canvas id="chartNewLoyal" height="220"></canvas>
+        <p class="note" id="newReturningNote">Baru vs kembali dari MRN invoice (prefiks registrasi EM-YYMM).</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Frekuensi Kunjungan Pasien</div>
+        <canvas id="chartVisitDist" height="220"></canvas>
+        <p class="note">Frekuensi kunjungan dari jumlah header invoice per MRN.</p>
+      </div>
+    </div>
+    <div class="card grid-full">
+      <div class="section-title">Pasien Teratas — Profil Tergabung (MRN + Nama, Semua Sumber)</div>
+      <p class="note" id="patientsTableNote"><strong>Nomor Rekam Medis (MRN)</strong> yang sama digabung dari berkas invoice, collection list, sales list, dan komisi.</p>
+      <div id="grid-patients" style="margin-top:10px;"></div>
+    </div>
+    <div class="card grid-full">
+      <div class="section-title">Daftar Pelanggan (dapat dicari)</div>
+      <div id="grid-customers" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- ── REMARKETING TAB ── -->
+  <div id="tab-remarketing" class="tab-content">
+
+    <!-- Step 1: Pick a priority group -->
+    <div class="rmk-priority-row">
+      <div class="rmk-pcard dormant" id="pcardDormant" onclick="setRmkLifecycle('dormant')">
+        <div class="rmk-pcard-check">✓</div>
+        <div class="rmk-pcard-badge">🔴 Highest Priority</div>
+        <div class="rmk-pcard-count" id="pcardDormantN">—</div>
+        <div class="rmk-pcard-sublabel">dormant patients</div>
+        <div class="rmk-pcard-phone" id="pcardDormantPhone">— punya telepon</div>
+        <div class="rmk-pcard-hint">No visits in 2026 · overdue for reactivation</div>
+      </div>
+      <div class="rmk-pcard lapsing" id="pcardLapsing" onclick="setRmkLifecycle('lapsing')">
+        <div class="rmk-pcard-check">✓</div>
+        <div class="rmk-pcard-badge">🟡 Follow Up Now</div>
+        <div class="rmk-pcard-count" id="pcardLapsingN">—</div>
+        <div class="rmk-pcard-sublabel">lapsing patients</div>
+        <div class="rmk-pcard-phone" id="pcardLapsingPhone">— punya telepon</div>
+        <div class="rmk-pcard-hint">Last visited Jan–Mar 2026 · 60–120 days since visit</div>
+      </div>
+      <div class="rmk-pcard active-lc" id="pcardActive" onclick="setRmkLifecycle('active')">
+        <div class="rmk-pcard-check">✓</div>
+        <div class="rmk-pcard-badge">🟢 Recently Active</div>
+        <div class="rmk-pcard-count" id="pcardActiveN">—</div>
+        <div class="rmk-pcard-sublabel">active patients</div>
+        <div class="rmk-pcard-phone" id="pcardActivePhone">— punya telepon</div>
+        <div class="rmk-pcard-hint">Visited Apr–May 2026 · maintain the relationship</div>
+      </div>
+      <div class="rmk-pcard all-lc selected" id="pcardAll" onclick="setRmkLifecycle('all')">
+        <div class="rmk-pcard-check">✓</div>
+        <div class="rmk-pcard-badge">📋 All Patients</div>
+        <div class="rmk-pcard-count" id="pcardAllN">—</div>
+        <div class="rmk-pcard-sublabel">total patient base</div>
+        <div class="rmk-pcard-phone" id="pcardAllPhone">— punya telepon</div>
+        <div class="rmk-pcard-hint">All lifecycles · full database view</div>
+      </div>
+    </div>
+
+    <!-- Step 2: Narrow down (outlet / treatment / phone) -->
+    <div class="rmk-refine">
+      <div class="filter-group">
+        <span class="filter-label">Outlet</span>
+        <div id="rmkOutletChips">
+          <button class="fchip active" onclick="setRmkFilter('outlet','all',this)">All</button>
+          <button class="fchip spdve" onclick="setRmkFilter('outlet','spdve',this)">SpDVE</button>
+          <button class="fchip spgk" onclick="setRmkFilter('outlet','spgk',this)">SpGK</button>
+        </div>
+      </div>
+      <div class="rmk-refine-sep"></div>
+      <div class="filter-group" style="flex:1;">
+        <span class="filter-label">Filter by Treatment / Service</span>
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <input class="rmk-search" id="rmkSearch" type="text" placeholder="mis. Picosure, Botox, Konsultasi…"
+                 oninput="applyRmkFilter()" onkeydown="if(event.key==='Enter')applyRmkFilter(true)" autocomplete="off">
+          <button onclick="applyRmkFilter(true)" style="background:#4f46e5;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:0.80rem;font-weight:600;cursor:pointer;white-space:nowrap;">🔍 Search</button>
+          <button onclick="clearRmkSearch()" style="background:white;color:#6b7280;border:1.5px solid #e5e7eb;border-radius:8px;padding:7px 10px;font-size:0.80rem;cursor:pointer;" title="Clear">✕</button>
+        </div>
+      </div>
+      <div class="rmk-refine-sep"></div>
+      <div class="filter-group">
+        <span class="filter-label">📞 Phone only</span>
+        <label class="toggle-switch"><input type="checkbox" id="rmkPhoneOnly" onchange="applyRmkFilter()"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <!-- Step 3: Result summary + export -->
+    <div class="rmk-result-bar" id="rmkResultBar">
+      <div id="rmkResultText" style="font-size:0.86rem;color:#374151;">Memuat…</div>
+      <button onclick="exportFilteredPatients()" style="background:#059669;color:white;border:none;border-radius:8px;padding:8px 18px;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;">⬇ Export Call List</button>
+    </div>
+
+    <div class="card grid-full" style="margin-top:0;">
+      <p class="note" style="margin-bottom:10px;">Tabel menampilkan 500 pertama · ekspor mencakup semua · MRN, Nama, Telepon, Klinik, Siklus, Biaya, Kunjungan, Kunjungan Terakhir, Perawatan Utama</p>
+      <div id="grid-remarketing"></div>
+    </div>
+
+    <!-- NEW: Saved Segments (Phase 3) -->
+    <div class="card grid-full" style="margin-top:0;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="section-title" style="margin:0;">Segmen Tersimpan</div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="savedSegName" class="rmk-search" style="width:180px;" placeholder="Beri nama set filter ini…">
+          <button onclick="saveCurrentSegment()" style="background:#4f46e5;color:white;border:none;border-radius:6px;padding:5px 10px;font-size:0.74rem;font-weight:600;cursor:pointer;">Simpan Saat Ini</button>
+        </div>
+      </div>
+      <div id="savedSegmentsList" style="display:flex;flex-wrap:wrap;gap:6px;min-height:28px;"></div>
+      <p class="note" style="margin-top:6px;">Klik segmen tersimpan untuk langsung memuat ulang filter remarketing tersebut.</p>
+    </div>
+
+    <!-- NEW: Win-back ROI Simulator (Phase 2) -->
+    <div class="card grid-full" style="margin-top:0;" id="winbackSimulatorCard">
+      <div class="section-title" style="margin-bottom:10px;">💰 Simulator ROI Win-back — Modelkan kampanye reaktivasi Anda</div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:14px;">
+        <div>
+          <div class="filter-label" style="margin-bottom:4px;">Offer / incentive per patient (IDR)</div>
+          <input type="number" id="wbOffer" value="500000" step="50000" style="width:100%;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.86rem;"
+                 oninput="updateWinbackROI()">
+          <div style="font-size:0.66rem;color:#9ca3af;margin-top:2px;">e.g. free consultation, discount voucher, treatment credit</div>
+        </div>
+        <div>
+          <div class="filter-label" style="margin-bottom:4px;">Perkiraan tingkat respons (%)</div>
+          <input type="number" id="wbResponse" value="18" step="1" min="1" max="60" style="width:100%;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.86rem;"
+                 oninput="updateWinbackROI()">
+          <div style="font-size:0.66rem;color:#9ca3af;margin-top:2px;">Realistic range for dormant/lapsing: 10–25%</div>
+        </div>
+        <div>
+          <div class="filter-label" style="margin-bottom:4px;">Pendapatan rata-rata per responden (IDR)</div>
+          <input type="number" id="wbRevenue" value="4500000" step="250000" style="width:100%;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.86rem;"
+                 oninput="updateWinbackROI()">
+          <div style="font-size:0.66rem;color:#9ca3af;margin-top:2px;">Based on your historical reactivation data or AOV</div>
+        </div>
+        <div>
+          <div class="filter-label" style="margin-bottom:4px;">Biaya kontak per pasien (IDR)</div>
+          <input type="number" id="wbContact" value="15000" step="5000" style="width:100%;padding:7px 10px;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.86rem;"
+                 oninput="updateWinbackROI()">
+          <div style="font-size:0.66rem;color:#9ca3af;margin-top:2px;">WhatsApp/SMS + staff time</div>
+        </div>
+      </div>
+
+      <div style="background:#f8fafc;border:1px solid #e0e7ff;border-radius:12px;padding:16px 18px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;text-align:center;">
+          <div>
+            <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Ditargetkan (filter saat ini)</div>
+            <div id="wbTargeted" style="font-size:1.35rem;font-weight:800;color:#111827;line-height:1.1;margin-top:2px;">—</div>
+          </div>
+          <div>
+            <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Punya Telepon (bisa dihubungi)</div>
+            <div id="wbPhone" style="font-size:1.35rem;font-weight:800;color:#111827;line-height:1.1;margin-top:2px;">—</div>
+          </div>
+          <div>
+            <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Perkiraan Responden</div>
+            <div id="wbResponders" style="font-size:1.35rem;font-weight:800;color:#059669;line-height:1.1;margin-top:2px;">—</div>
+          </div>
+          <div>
+            <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Pendapatan Kotor</div>
+            <div id="wbGross" style="font-size:1.35rem;font-weight:800;color:#111827;line-height:1.1;margin-top:2px;">—</div>
+          </div>
+          <div>
+            <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Total Biaya</div>
+            <div id="wbCost" style="font-size:1.35rem;font-weight:800;color:#dc2626;line-height:1.1;margin-top:2px;">—</div>
+          </div>
+          <div>
+            <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Pendapatan Bersih</div>
+            <div id="wbNet" style="font-size:1.35rem;font-weight:800;color:#059669;line-height:1.1;margin-top:2px;">—</div>
+          </div>
+          <div>
+            <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">Kelipatan ROI</div>
+            <div id="wbROI" style="font-size:1.35rem;font-weight:800;color:#4f46e5;line-height:1.1;margin-top:2px;">—</div>
+          </div>
+          <div>
+            <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.6px;">% Respons Impas</div>
+            <div id="wbBreakeven" style="font-size:1.35rem;font-weight:800;color:#f59e0b;line-height:1.1;margin-top:2px;">—</div>
+          </div>
+        </div>
+        <div id="wbWarning" style="margin-top:10px;font-size:0.74rem;color:#92400e;display:none;"></div>
+      </div>
+      <p class="note" style="margin-top:8px;">Numbers update live as you change filters above or the input assumptions. Use this before launching any reactivation campaign.</p>
+    </div>
+
+    <!-- Cross-product analysis -->
+    <div class="card grid-full" style="margin-top:0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="section-title" style="margin-bottom:0;">🔀 Analisis Lintas-Produk — pasien yang membeli semua layanan terpilih</div>
+        <button id="crossExportBtn" onclick="exportCrossProduct()" style="display:none;background:#4f46e5;color:white;border:none;border-radius:8px;padding:8px 16px;font-size:0.80rem;font-weight:600;cursor:pointer;">⬇ Export CSV</button>
+      </div>
+      <div style="position:relative;margin-bottom:10px;">
+        <div class="filter-label" style="margin-bottom:5px;">Cari &amp; tambah layanan</div>
+        <input id="crossSearch" class="rmk-search" style="width:100%;max-width:440px;" type="text"
+               placeholder="Ketik untuk mencari — mis. Picosure, Excel V, Konsultasi…"
+               oninput="filterCrossOptions()" onkeydown="crossSearchKeydown(event)" autocomplete="off">
+        <div id="crossDropdown" style="display:none;position:absolute;top:calc(100% + 2px);left:0;width:440px;background:white;border:1px solid #e5e7eb;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,0.11);max-height:220px;overflow-y:auto;z-index:40;"></div>
+      </div>
+      <div id="crossChips" style="display:flex;flex-wrap:wrap;gap:7px;min-height:28px;margin-bottom:10px;"></div>
+      <p class="note" style="margin-bottom:10px;">Searches all 6,118 patients (including dormant) · finds those who received <em>every</em> selected service · add 2 or more to compare</p>
+      <div id="crossResults"><p style="color:#9ca3af;font-size:0.82rem;">Add two or more services above to find patients who purchased all of them.</p></div>
+    </div>
+  </div>
+
+  <!-- ── OPERATIONS TAB ── -->
+  <div id="tab-operations" class="tab-content">
+    <div class="grid-2" style="margin-bottom:14px;">
+      <div class="card">
+        <div class="section-title">Penggunaan Komisi (semua bulan)</div>
+        <p id="commissionSummary" style="font-size:0.82rem;color:#374151;line-height:1.8;margin-bottom:10px;">Memuat…</p>
+        <div id="grid-commission" style="margin-top:8px;"></div>
+        <p class="note">Dari CSV <strong>Commission Sales Usage Report</strong> (pembagian terapis &amp; dokter).</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Analisis Diskon</div>
+        <div id="discountSummary" style="padding:6px 0 10px;font-size:0.82rem;color:#374151;line-height:1.9;">Memuat…</div>
+        <div style="max-height:160px;display:flex;justify-content:center;">
+          <canvas id="chartDiscount" height="150"></canvas>
+        </div>
+      </div>
+    </div>
+    <div class="card grid-full" style="margin-bottom:14px;">
+      <div class="section-title">Kinerja Pendapatan Dokter</div>
+      <div id="docBars" style="margin-top:14px;"></div>
+    </div>
+
+    <!-- NEW: Doctor Efficiency (Quick Win) -->
+    <div class="card grid-full" style="margin-bottom:14px;">
+      <div class="section-title">Efisiensi Dokter — Pendapatan per Transaksi (Peringkat)</div>
+      <div id="docEfficiency" style="margin-top:10px;"></div>
+      <p class="note">Rp/txn lebih tinggi = nilai lebih besar per interaksi pasien. Berguna untuk pembinaan dan perencanaan kapasitas.</p>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Jumlah Transaksi Dokter</div>
+      <canvas id="chartDoc" height="260"></canvas>
+    </div>
+  </div>
+
+  <!-- ── DATA SOURCES MODAL ── -->
+  <div class="modal-overlay" id="dataSourcesModal">
+    <div class="ds-modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="font-size:1.05rem;font-weight:700;">📁 Data Sources</h2>
+        <span onclick="closeDataSources()" style="cursor:pointer;color:#9ca3af;font-size:1.3rem;line-height:1;padding:4px 8px;border-radius:6px;transition:color 0.15s;" onmouseover="this.style.color='#374151'" onmouseout="this.style.color='#9ca3af'">✕</span>
+      </div>
+      <div style="margin-bottom:18px;">
+        <div class="section-title">Data Bulanan Mentah — Berkas yang Dianalisis</div>
+        <p class="note" id="dataSourcesSummary" style="margin-bottom:12px;">Memuat inventaris…</p>
+        <div id="grid-data-sources" style="margin-top:10px;"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="section-title">Jenis Data yang Dimuat</div>
+          <div id="dataTypesBreakdown" style="font-size:0.82rem;line-height:2;color:#374151;margin-top:6px;"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Pengecualian Kredit &amp; Internal</div>
+          <div id="creditDetailBox" style="font-size:0.82rem;line-height:1.9;color:#374151;margin-top:6px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TRENDS TAB ── -->
+  <div id="tab-trends" class="tab-content">
+
+    <!-- NEW: Forecasting + Target Calculator (Phase 3) -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="section-title">Perkiraan &amp; Kalkulator Target</div>
+
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start;">
+        <div style="flex:1;min-width:280px;">
+          <div style="font-size:0.70rem;font-weight:700;color:#6b7280;margin-bottom:4px;">Current Run-Rate (based on loaded months)</div>
+          <div style="font-size:1.6rem;font-weight:800;line-height:1.05;" id="fcCurrentRunRate">—</div>
+          <div style="font-size:0.76rem;color:#6b7280;margin-top:2px;" id="fcMonthsNote">—</div>
+
+          <div style="margin-top:12px;">
+            <div style="font-size:0.70rem;font-weight:700;color:#6b7280;margin-bottom:4px;">Perkiraan (Rata-rata YTD × 12)</div>
+            <div style="font-size:1.35rem;font-weight:800;" id="fcProjectedYTD">—</div>
+          </div>
+
+          <div style="margin-top:8px;">
+            <div style="font-size:0.70rem;font-weight:700;color:#6b7280;margin-bottom:4px;">Perkiraan (Rata-rata 3 Bulan Terakhir × 12)</div>
+            <div style="font-size:1.35rem;font-weight:800;" id="fcProjectedRecent">—</div>
+          </div>
+        </div>
+
+        <div style="flex:1;min-width:320px;border-left:1px solid #f3f4f6;padding-left:20px;">
+          <div style="font-size:0.70rem;font-weight:700;color:#6b7280;margin-bottom:4px;">Tetapkan Target Tahunan Anda</div>
+          <input type="number" id="fcTargetInput" value="32000000000" step="500000000" style="width:100%;max-width:260px;padding:8px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:0.96rem;font-weight:600;"
+                 oninput="updateForecast()">
+          <div style="font-size:0.68rem;color:#9ca3af;margin-top:2px;">Enter desired full-year revenue (IDR)</div>
+
+          <div style="margin-top:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div>
+              <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Rata-rata Bulanan Dibutuhkan (sisa tahun)</div>
+              <div style="font-size:1.25rem;font-weight:800;color:#4f46e5;" id="fcRequiredMonthly">—</div>
+            </div>
+            <div>
+              <div style="font-size:0.64rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;">Selisih vs Laju Saat Ini</div>
+              <div style="font-size:1.25rem;font-weight:800;" id="fcGap">—</div>
+            </div>
+            <div style="grid-column:1/-1;">
+              <div style="font-size:0.76rem;color:#374151;margin-top:4px;" id="fcLiftNote">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="note" style="margin-top:10px;">Perkiraan adalah rata-rata sederhana dari data yang dimuat. Sesuaikan target untuk melihat kinerja bulanan yang dibutuhkan pada sisa tahun. Gunakan bersama perbandingan YoY untuk penetapan target yang realistis.</p>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:14px;">
+      <div class="card">
+        <div class="section-title">Pendapatan Tahunan (2022–2026)</div>
+        <canvas id="chartYearRev" height="220"></canvas>
+        <p style="font-size:0.72rem;color:#6b7280;margin-top:8px;">* 2026 = Jan–May only. 2026 run-rate (annualised from Jan–Apr avg): <strong>Rp 31.9B</strong> — up +6.0% vs 2025</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Pengunjung Unik per Tahun</div>
+        <canvas id="chartYearPat" height="220"></canvas>
+        <p style="font-size:0.72rem;color:#6b7280;margin-top:8px;">* 2026 = Jan–May only. 1,967 unique visitors in 5 months vs 3,269 in all of 2025.</p>
+      </div>
+    </div>
+    <div class="grid-2" style="margin-bottom:14px;">
+      <div class="card">
+        <div class="section-title">Registrasi Pasien Baru per Tahun</div>
+        <canvas id="chartYearNew" height="220"></canvas>
+        <p style="font-size:0.72rem;color:#6b7280;margin-top:8px;">Derived from MRN prefix (EM-YYMM). * 2026 Jan–May: 659 new registrations.</p>
+      </div>
+      <div class="card">
+        <div class="section-title">Tren Nilai Pesanan Rata-rata</div>
+        <canvas id="chartYearAOV" height="220"></canvas>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
+      <div class="section-title">Tabel Ringkasan Tahun-ke-Tahun</div>
+      <div style="overflow-x:auto;margin-top:10px;">
+        <table style="width:100%;border-collapse:collapse;font-size:0.80rem;">
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="padding:8px 12px;text-align:left;font-weight:700;">Year</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:700;">Revenue (IDR)</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:700;">YoY</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:700;">Invoices</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:700;">AOV (IDR)</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:700;">Visitors</th>
+              <th style="padding:8px 12px;text-align:right;font-weight:700;">New Reg.</th>
+            </tr>
+          </thead>
+          <tbody id="yearTableBody"></tbody>
+        </table>
+      </div>
+      <p style="font-size:0.72rem;color:#6b7280;margin-top:10px;">* 2026 partial (Jan–May). 2022 data sparse — system started mid-year. Outlet split available for 2025–2026 only.</p>
+    </div>
+    <div class="card">
+      <div class="section-title">Pengecualian Voucher Kredit per Tahun</div>
+      <canvas id="chartYearCredit" height="160"></canvas>
+      <p style="font-size:0.72rem;color:#6b7280;margin-top:8px;">Total excluded across all years: <strong>Rp 2,401,278,967</strong> (208 invoices). Credit volume growing — 2025 full year Rp 1.04B, 2026 Jan–May already Rp 1.01B.</p>
+    </div>
+  </div>
+
+  <!-- ── Local Query (No AI) ── -->
+  <style>
+    .lq-lbl{display:block;font-size:0.66rem;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:3px;}
+    .lq-input{width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font-size:0.85rem;box-sizing:border-box;}
+    .lq-input:focus{outline:none;border-color:#4f46e5;box-shadow:0 0 0 2px rgba(79,70,229,0.12);}
+    .lq-pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:0.7rem;font-weight:700;background:#eef2ff;color:#4338ca;text-transform:capitalize;}
+    .lq-pill.active{background:#d1fae5;color:#065f46;}
+    .lq-pill.lapsing{background:#fef3c7;color:#92400e;}
+    .lq-pill.dormant{background:#fee2e2;color:#991b1b;}
+  </style>
+  <div class="card" id="localQueryCard" style="margin-bottom:14px;">
+    <div class="section-title" style="margin-bottom:10px;">🔍 Cari Data <span style="font-weight:500;color:#6b7280;font-size:0.78rem;">· instan · privat · tanpa AI</span></div>
+
+    <!-- Patient treatment history by date range -->
+    <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+      <div style="font-weight:700;font-size:0.86rem;color:#111827;margin-bottom:8px;">Riwayat perawatan pasien</div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;">
+        <div style="flex:2;min-width:220px;">
+          <label class="lq-lbl" for="lqPatient">Pasien (nama atau MRN)</label>
+          <input class="lq-input" id="lqPatient" list="lqPatientList" placeholder="Mulai ketik nama atau MRN…" oninput="lqRunPatient()" autocomplete="off" />
+          <datalist id="lqPatientList"></datalist>
+        </div>
+        <div style="flex:1;min-width:130px;">
+          <label class="lq-lbl" for="lqFrom">Dari</label>
+          <input class="lq-input" id="lqFrom" type="date" onchange="lqRunPatient()" />
+        </div>
+        <div style="flex:1;min-width:130px;">
+          <label class="lq-lbl" for="lqTo">Sampai</label>
+          <input class="lq-input" id="lqTo" type="date" onchange="lqRunPatient()" />
+        </div>
+        <button class="qa-btn" style="flex-shrink:0;" onclick="lqClearDates()">Hapus tanggal</button>
+      </div>
+      <div id="lqPatientResult" style="margin-top:12px;"></div>
+    </div>
+
+    <!-- General keyword lookups -->
+    <div>
+      <div style="font-weight:700;font-size:0.86rem;color:#111827;margin-bottom:6px;">Pencarian cepat</div>
+      <div class="qa-row">
+        <input class="qa-input" id="lqQuery" type="text" placeholder="mis. top 10 patients · dormant over 5m with phone · revenue in March · Picosure · doctors at SpGK" onkeydown="if(event.key==='Enter') lqRunQuery()" />
+        <button class="qa-btn" onclick="lqRunQuery()">Cari</button>
+      </div>
+      <div id="lqQueryResult" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- ── Patients Due for Recall (No AI) ── -->
+  <div class="card" id="recallCard" style="margin-bottom:14px;">
+    <div class="section-title" style="margin-bottom:6px;">⏰ Pasien Perlu Dihubungi <span style="font-weight:500;color:#6b7280;font-size:0.78rem;">· berdasarkan ritme kunjungan tiap pasien · tanpa AI</span></div>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:10px;">
+      <div style="min-width:150px;">
+        <label class="lq-lbl" for="rcDefault">Jeda kunjungan tunggal (hari)</label>
+        <input class="lq-input" id="rcDefault" type="number" value="90" min="14" onchange="lqRunRecall()" />
+      </div>
+      <div style="min-width:160px;">
+        <label class="lq-lbl" for="rcMaxStale">Lewati jika terlambat lebih dari (hari)</label>
+        <input class="lq-input" id="rcMaxStale" type="number" value="365" min="30" onchange="lqRunRecall()" />
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:#374151;"><input type="checkbox" id="rcPhoneOnly" checked onchange="lqRunRecall()" /> Hanya yang punya telepon</label>
+      <button class="qa-btn" onclick="lqExportRecall()">⬇ Ekspor daftar panggilan</button>
+    </div>
+    <div id="rcResult"></div>
+  </div>
+
+  <!-- ── Q&A ── -->
+  <div class="qa-section" id="qaSection">
+    <div class="qa-section-header">
+      <div class="section-title" style="margin-bottom:0;">💬 Tanyakan Apa Saja Tentang Data Ini</div>
+      <button class="qa-toggle-btn" id="qaToggleBtn" onclick="toggleQA()">▲ Collapse</button>
+    </div>
+    <div class="qa-body" id="qaBody">
+      <div class="qa-chips">
+        <div class="qa-chip-group">
+          <span class="qa-chip-cat">💰 Pendapatan</span>
+          <span class="chip" onclick="ask('Is our 2026 revenue on track vs 2025? Compare the run-rate, YTD performance, and which months are above or below the monthly average needed to match last year.')">Laju 2026 vs 2025</span>
+          <span class="chip" onclick="ask('How is SpGK growing relative to SpDVE this year? Compare their monthly revenue trend, growth rate, and share of total revenue each month.')">Pertumbuhan SpDVE vs SpGK</span>
+          <span class="chip" onclick="ask('Which month had the highest AOV and which had the lowest? What drove the difference — transaction volume, outlet mix, or product mix?')">Analisis tren AOV</span>
+          <span class="chip" onclick="ask('Analyse our new vs returning patient revenue trend by month. Is new patient acquisition growing? What is the split of revenue contribution?')">Tren baru vs kembali</span>
+        </div>
+        <div class="qa-chip-group">
+          <span class="qa-chip-cat">👥 Pasien</span>
+          <span class="chip amber" onclick="ask('Break down our 6,118 patients into high value (≥Rp 10M), mid value (Rp 3–10M), and entry level (<Rp 3M) tiers. For each: count, average spend, average visits, and what they represent as a business opportunity.')">Tingkatan nilai pasien</span>
+          <span class="chip amber" onclick="ask('Compare active vs lapsing patients: average spend per patient, average visits, spend per visit, and what the gap tells us about patient retention risk.')">Selisih aktif vs menurun</span>
+          <span class="chip amber" onclick="ask('Which treatments have the highest patient reach (most unique patients)? Cross-reference with revenue to find treatments that are both popular and high-value vs popular but low-margin.')">Popularitas perawatan vs pendapatan</span>
+          <span class="chip amber" onclick="ask('How many patients only visited once? What is the one-time-visitor rate and what does it cost us in lost revenue if we could convert just 10% of them to a second visit?')">Analisis pengunjung sekali</span>
+        </div>
+        <div class="qa-chip-group">
+          <span class="qa-chip-cat">⚙️ Operasional</span>
+          <span class="chip purple" onclick="ask('Rank all doctors by revenue per transaction efficiency. Who generates the most value per patient interaction and who has the most room to improve?')">Peringkat efisiensi dokter</span>
+          <span class="chip purple" onclick="ask('How many patients visit both SpDVE and SpGK? What does this cross-clinic usage pattern suggest about upsell opportunities?')">Pasien lintas-klinik</span>
+          <span class="chip purple" onclick="ask('Analyse discount usage: what % of patients used discounts, how does discount usage correlate with spend tier, and is our discounting strategy effective?')">Efektivitas diskon</span>
+          <span class="chip purple" onclick="ask('How has credit voucher usage grown as a % of gross revenue from 2023 to 2026? Is this becoming a structural concern?')">Tren voucher kredit</span>
+        </div>
+        <div class="qa-chip-group">
+          <span class="qa-chip-cat">🎯 Kampanye</span>
+          <span class="chip green" onclick="ask('We have high-value dormant patients (≥Rp 5M spend, no 2026 visit). Suggest 3 specific win-back offers tailored to their top treatments — include the offer mechanics, target segment size, and expected revenue if 20% respond.')">Ide kampanye win-back</span>
+          <span class="chip green" onclick="ask('List our top 20 lapsing patients by total spend who have a phone number. For each: MRN, name, phone, total spend, last visit month, and their top treatment — format as a call sheet.')">Daftar panggilan VIP menurun</span>
+          <span class="chip green" onclick="ask('Based on treatment patterns, what are the best cross-sell opportunities between SpDVE and SpGK? Which SpDVE treatments pair naturally with SpGK services?')">Peluang cross-sell</span>
+          <span class="chip green" onclick="ask('Which treatments should we promote this month to maximise revenue? Consider patient reach, AOV, repeat visit rate, and which lifecycle segments are most likely to respond.')">Perawatan terbaik dipromosikan</span>
+        </div>
+      </div>
+      <div class="qa-row">
+        <input class="qa-input" id="qaInput" type="text" placeholder="mis. Tampilkan semua pasien menurun yang punya telepon dan pernah Picosure" onkeydown="if(event.key==='Enter') submitQ()" />
+        <button class="qa-btn" id="askBtn" onclick="submitQ()">Tanya Claude ↗</button>
+      </div>
+      <div class="qa-response" id="qaResponse">
+        <div class="qa-response-header">
+          <span>🤖 Claude's Answer</span>
+          <span class="qa-response-close" onclick="document.getElementById('qaResponse').classList.remove('visible')">✕</span>
+        </div>
+        <div id="qaResponseText"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Patient Detail Modal ── -->
+  <div class="modal-overlay" id="patientDetailModal">
+    <div class="pt-modal">
+      <div class="pt-header">
+        <div>
+          <div class="pt-name" id="ptName">—</div>
+          <div class="pt-sub" id="ptSub">—</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span class="pt-badge" id="ptBadge">—</span>
+          <span onclick="closePatientDetail()" style="cursor:pointer;color:#9ca3af;font-size:1.3rem;line-height:1;padding:2px 6px;border-radius:6px;transition:color 0.15s;" onmouseover="this.style.color='#374151'" onmouseout="this.style.color='#9ca3af'">✕</span>
+        </div>
+      </div>
+      <div class="pt-kpis" id="ptKpis"></div>
+      <div class="section-title" style="margin-bottom:10px;">Rincian Perawatan</div>
+      <div style="display:flex;gap:12px;font-size:0.62rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.5px;padding:0 0 6px;border-bottom:2px solid #f3f4f6;margin-bottom:0;">
+        <div style="width:18px;flex-shrink:0;"></div>
+        <div style="flex:1;">Treatment / Service</div>
+        <div style="width:44px;text-align:center;flex-shrink:0;">Qty</div>
+        <div style="width:88px;text-align:right;flex-shrink:0;">Spend</div>
+      </div>
+      <div id="ptTreatments"></div>
+      <div class="pt-footer" id="ptFooter"></div>
+    </div>
+  </div>
+
+  <!-- ── Settings Modal ── -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h2>⚙️ Kunci API Claude</h2>
+      <p>Masukkan kunci API Anthropic Anda untuk mengaktifkan Tanya-Jawab AI langsung di browser. Kunci disimpan di <strong>localStorage</strong> pada perangkat ini saja — tidak pernah meninggalkan komputer Anda.</p>
+      <div class="api-status none" id="apiStatus">Belum ada kunci tersimpan</div>
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-..." autocomplete="off" />
+      <p style="font-size:0.74rem;color:#9ca3af;margin-top:-8px;margin-bottom:16px;">Dapatkan kunci di <strong>console.anthropic.com</strong> → API Keys. Memakai claude-haiku-4-5-20251001 (~$0.001 per pertanyaan).</p>
+      <div class="modal-btns">
+        <button class="modal-cancel" onclick="closeSettings()">Batal</button>
+        <button class="modal-cancel" style="color:#ef4444;border-color:#fca5a5;" onclick="clearKey()">Hapus Kunci</button>
+        <button class="modal-save" onclick="saveKey()">Simpan &amp; Tutup</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">ADC Clinic &nbsp;·&nbsp; Neosoft POS Export &nbsp;·&nbsp; Jan – May 2026 &nbsp;·&nbsp; adc SpDVE + adc SpGK &nbsp;·&nbsp; Outlet split confirmed per invoice &nbsp;·&nbsp; Built by Claude Cowork &nbsp;·&nbsp; <span class="footer-link" onclick="openDataSources()">📁 Data Sources</span></div>
+
+
+<script>
+// ── Core functions (loadRecentData, applyDashboardData, rebuildDashboard, buildAlerts,
+// ── refreshYearly2026, formatGeneratedAt, updateDynamicLabels, rebuildMonthChips,
+// ── destroyCharts, buildGrids, buildDocBars, buildDataQuality, downloadBlob) — in js/core.js
+
+function buildOutletBars(){
+  const box=document.getElementById('outletBarsContainer');
+  if(!box)return;
+  const dve=D.monthly.reduce((s,m)=>s+m.spdve,0);
+  const gk=D.monthly.reduce((s,m)=>s+m.spgk,0);
+  const tot=dve+gk||1;
+  const pctD=(dve/tot*100).toFixed(1);
+  const pctG=(gk/tot*100).toFixed(1);
+  box.innerHTML=
+    '<div class="outlet-row"><div class="outlet-name" style="color:#4f46e5;">adc SpDVE</div><div class="outlet-bar-bg"><div class="outlet-bar-fg" style="width:'+pctD+'%;background:linear-gradient(90deg,#4f46e5,#7c3aed);"></div></div><div class="outlet-val">'+rp(dve)+' &nbsp;·&nbsp; '+pctD+'%</div></div>'+
+    '<div class="outlet-row"><div class="outlet-name" style="color:#10b981;">adc SpGK</div><div class="outlet-bar-bg"><div class="outlet-bar-fg" style="width:'+pctG+'%;background:linear-gradient(90deg,#10b981,#059669);"></div></div><div class="outlet-val">'+rp(gk)+' &nbsp;·&nbsp; '+pctG+'%</div></div>';
+}
+
+function buildFunnel(){
+  const box=document.getElementById('funnelContainer');
+  const lc=D.patientsLifecycle;
+  if(!box||!lc)return;
+  const act=lc.active||0, lap=lc.lapsing||0, dor=lc.dormant||0;
+  const actMo=(lc.activeMonths||[]).join(' or ')||'recent months';
+  let lapBadge='';
+  Object.entries(lc.lapsingBreakdown||{}).forEach(([m,n])=>{lapBadge+=m.replace(' 2026','')+' '+n+' · ';});
+  box.innerHTML=
+    '<div class="funnel-step f-active"><div class="funnel-num" style="color:#065f46;">'+act.toLocaleString()+'</div><div class="funnel-lbl" style="color:#065f46;">Aktif</div><div class="funnel-def" style="color:#065f46;">Kunjungan terakhir: '+idMonth(actMo)+'</div><div class="funnel-badge" style="color:#065f46;">'+(lc.activePct||0)+'% dari '+lc.total.toLocaleString()+' pasien</div></div>'+
+    '<div class="funnel-step f-lapsing"><div class="funnel-num" style="color:#92400e;">'+lap.toLocaleString()+'</div><div class="funnel-lbl" style="color:#92400e;">Menurun</div><div class="funnel-def" style="color:#92400e;">Bulan-bulan sebelumnya</div><div class="funnel-badge" style="color:#92400e;">'+(lc.lapsingPct||0)+'% · '+lapBadge+'</div></div>'+
+    '<div class="funnel-step f-dormant"><div class="funnel-num" style="color:#991b1b;">'+dor.toLocaleString()+'</div><div class="funnel-lbl" style="color:#991b1b;">Dorman</div><div class="funnel-def" style="color:#991b1b;">Sebelum periode data'+(lc.hasHistorical?' (termasuk workbook historis)':'')+'</div><div class="funnel-badge" style="color:#991b1b;">'+(lc.dormantPct||0)+'%</div></div>';
+  const note=document.getElementById('funnelNote');
+  if(note) note.textContent='Lifecycle from '+lc.total.toLocaleString()+' unique patients (by MRN)'+(lc.hasHistorical?' incl. historical XLSX.':'.');
+  const cc=document.getElementById('customerCompileNote');
+  const n=D_META?.uniqueCustomers;
+  if(cc&&n) cc.textContent='Compiled customer records: '+n.toLocaleString()+' unique MRNs · data merged from invoice + list + sales + commission exports.';
+  const ptn=document.getElementById('patientsTableNote');
+  if(ptn&&D_META?.customersCompiledFrom) ptn.textContent=D_META.customersCompiledFrom+'. Showing top spenders; full list in registry table below.';
+}
+
+function buildCommission(){
+  const c=D.commission;
+  const sum=document.getElementById('commissionSummary');
+  if(sum&&c) sum.innerHTML='<strong>Total commission:</strong> '+rp(c.total)+' · <strong>Treatment usages:</strong> '+(c.usages||0).toLocaleString();
+  const el=document.getElementById('grid-commission');
+  if(!el||!c?.therapists?.length)return;
+  new gridjs.Grid({columns:[{name:'Therapist / Doctor',width:'220px'},{name:'Commission',width:'110px'},{name:'Usages',width:'80px'}],
+    data:c.therapists.map(t=>[t.name,rp(t.commission),t.usages.toLocaleString()]),
+    sort:true,style:{table:{'font-size':'0.78rem'}},pagination:{limit:8}}).render(el);
+}
+
+function buildDiscountUI(){
+  const d=D.discounts;
+  const box=document.getElementById('discountSummary');
+  if(box&&d) box.innerHTML='<strong>Total discounts:</strong> '+rp(d.totalDiscount)+'<br><strong>Discounted invoices:</strong> '+(d.discountedInvoices||0).toLocaleString()+' ('+(d.discountedPct||0)+'%)<br><strong>Gross (pre-discount lines):</strong> '+rp(d.grossTotal);
+  const cred=document.getElementById('creditDetailBox');
+  const m=D_META||{};
+  if(cred) cred.innerHTML='<strong>Credit excluded:</strong> '+rp(m.creditExcluded)+' · '+m.creditInvoices+' invoices<br><strong>Redemptions (CREDIT VOUCHER):</strong> '+(m.creditRedemptions||'—')+'<br><strong>CV- package purchases:</strong> '+(m.creditPurchases||'—')+'<br><strong>Sources:</strong> Collection by Invoice (all months)';
+}
+
+function buildDataSources(){
+  const m=D_META||{};
+  const sum=document.getElementById('dataSourcesSummary');
+  if(sum) sum.textContent='Scanned '+(m.rawFilesCount||'?')+' files from _Raw Monthly Data · generated '+formatGeneratedAt(m.generatedAt);
+  const types=document.getElementById('dataTypesBreakdown');
+  const dt=m.dataTypesLoaded||{};
+  if(types){
+    types.innerHTML=
+      '<div><strong>Collection by Invoice</strong> — '+dt.invoice+' months (revenue, doctors, patients, payments)</div>'+
+      '<div><strong>Item Sold by Collection</strong> — '+dt.collection+' months (category totals)</div>'+
+      '<div><strong>Item Sold by Collection List</strong> — '+dt.collection_list+' months (line-level + outlet)</div>'+
+      '<div><strong>Item Sold by Sales</strong> — '+dt.sales+' months (accrual comparison)</div>'+
+      '<div><strong>Item Sold by Sales List</strong> — '+dt.sales_list+' months</div>'+
+      '<div><strong>Commission Sales Usage Report</strong> — '+dt.commission+' months</div>';
+  }
+  const el=document.getElementById('grid-data-sources');
+  if(!el||!m.rawFiles)return;
+  new gridjs.Grid({columns:[{name:'#',width:'40px'},{name:'CSV File',width:'360px'}],
+    data:m.rawFiles.map((f,i)=>[i+1,f]),search:true,sort:true,style:{table:{'font-size':'0.78rem'}},pagination:{limit:15}}).render(el);
+}
+
+// ── rp, activeMonth, activeOutlet, compareYoY — declared in js/core.js ──
+
+// ── SETTINGS ──────────────────────────────────────────────────────────────────
+function showExecutiveSummary(){
+  let modal = document.getElementById('execSummaryModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'execSummaryModal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = '<div class="modal-box" style="max-width:600px;max-height:80vh;overflow-y:auto;">'
+      + '<h2 style="font-size:1.1rem;font-weight:800;margin-bottom:16px;">📄 Ringkasan Eksekutif</h2>'
+      + '<div id="execSummaryBody" style="font-size:0.84rem;line-height:1.6;white-space:pre-wrap;font-family:monospace;background:#f9fafb;border-radius:8px;padding:14px;border:1px solid #e5e7eb;"></div>'
+      + '<div class="modal-btns" style="margin-top:16px;">'
+      + '<button class="modal-cancel" onclick="document.getElementById(\'execSummaryModal\').classList.remove(\'open\')">Tutup</button>'
+      + '<button style="background:#4f46e5;color:white;border:none;border-radius:8px;padding:10px 18px;font-weight:700;cursor:pointer;" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById(\'execSummaryBody\').textContent)">Salin</button>'
+      + '</div></div>';
+    modal.addEventListener('click', e => { if(e.target === modal) modal.classList.remove('open'); });
+    document.body.appendChild(modal);
+  }
+
+  const m = D_META || {};
+  const range = m.monthRange || 'Jan–May';
+  const ytd = D.monthly.reduce((s,r)=>s+r.revenue,0);
+  const txns = D.monthly.reduce((s,r)=>s+r.txns,0);
+  const aov = txns ? ytd/txns : 0;
+  const best = D.monthly.reduce((a,b)=>b.revenue>a.revenue?b:a, D.monthly[0]||{});
+  const y2025 = D.yearly.find(y=>String(y.year)==='2025');
+  const yoyPct = y2025&&y2025.revenue ? ((ytd/y2025.revenue-1)*100).toFixed(1) : '—';
+  const profiles = D.patientProfiles||[];
+  const active = profiles.filter(p=>p.lifecycle==='active').length;
+  const lapsing = profiles.filter(p=>p.lifecycle==='lapsing').length;
+  const dormant = profiles.filter(p=>p.lifecycle==='dormant').length;
+  const withPhone = profiles.filter(p=>p.phone).length;
+
+  const lines = [
+    'ADC CLINIC — EXECUTIVE SUMMARY',
+    'Period: '+range+' 2026'+(m.latestInvoiceDate?' (data through '+m.latestInvoiceDate+')':''),
+    '═'.repeat(52),
+    '',
+    'REVENUE',
+    '  YTD Revenue     : '+rp(ytd),
+    '  Total Txns      : '+txns.toLocaleString(),
+    '  Avg Order Value : '+rp(aov,2),
+    '  Peak Month      : '+(best.month||'—')+' ('+rp(best.revenue||0)+')',
+    '  vs 2025 Full    : '+(yoyPct!=='—'?(yoyPct>0?'+':'')+yoyPct+'%':'—'),
+    '',
+    'OUTLET SPLIT',
+    '  adc SpDVE       : '+(m.outletSpdvePct||'—')+'%',
+    '  adc SpGK        : '+(m.outletSpgkPct||'—')+'%',
+    '',
+    'PATIENT BASE ('+profiles.length.toLocaleString()+' total)',
+    '  Active (≤30d)   : '+active.toLocaleString(),
+    '  Lapsing (31–120d): '+lapsing.toLocaleString(),
+    '  Dormant (>120d) : '+dormant.toLocaleString(),
+    '  With Phone      : '+withPhone.toLocaleString()+' ('+( profiles.length?Math.round(withPhone/profiles.length*100):0)+'%)',
+    '',
+    'TOP DOCTORS',
+    ...(D.doctors||[]).slice(0,3).map((d,i)=>'  '+(i+1)+'. '+d.name.replace(/,\s*Sp.*/,'')+' ['+d.outlet+'] '+rp(d.revenue,2)+' | '+d.txns+' txns'),
+    '',
+    'Dibuat: '+new Date().toLocaleString()
+  ];
+
+  document.getElementById('execSummaryBody').textContent = lines.join('\n');
+  modal.classList.add('open');
+}
+
+function openSettings(){
+  const key=localStorage.getItem('adc_claude_key')||'';
+  document.getElementById('apiKeyInput').value='';
+  document.getElementById('apiKeyInput').placeholder=key?'sk-ant-… (currently saved)':'sk-ant-…';
+  document.getElementById('apiStatus').textContent=key?'✓ API key saved (ends in …'+key.slice(-4)+')':'No key saved — enter one below';
+  document.getElementById('apiStatus').className='api-status '+(key?'ok':'none');
+  document.getElementById('settingsModal').classList.add('open');
+}
+function closeSettings(){document.getElementById('settingsModal').classList.remove('open');}
+function clearKey(){
+  localStorage.removeItem('adc_claude_key');
+  document.getElementById('apiKeyInput').value='';
+  document.getElementById('apiKeyInput').placeholder='sk-ant-…';
+  document.getElementById('apiStatus').textContent='Key cleared.';
+  document.getElementById('apiStatus').className='api-status none';
+  updateSettingsBtn();
+}
+function saveKey(){
+  const raw=document.getElementById('apiKeyInput').value.trim();
+  if(raw&&raw.startsWith('sk-')){
+    localStorage.setItem('adc_claude_key',raw);
+  }
+  closeSettings();updateSettingsBtn();
+}
+function updateSettingsBtn(){
+  const btn=document.getElementById('settingsBtn');
+  if(!btn)return;
+  const has=!!localStorage.getItem('adc_claude_key');
+  btn.className='settings-btn'+(has?' has-key':'');
+  btn.textContent=has?'⚙ Kunci AI ✓':'⚙ Kunci AI';
+}
+
+// ── TABS / FILTERS ─────────────────────────────────────────────────────────────
+function switchTab(name,e){
+  document.querySelectorAll('.tab-content').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(e&&e.currentTarget)e.currentTarget.classList.add('active');
+}
+function setMonth(m,btn){
+  activeMonth=m;
+  document.querySelectorAll('#monthChips .fchip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  // Keep scorecard selection in sync with the chip bar
+  document.querySelectorAll('.sc-card').forEach(c=>c.classList.toggle('selected',c.dataset.monthKey===m));
+  updateKPIs();
+  updateCharts();
+}
+function setOutlet(o,btn){
+  activeOutlet=o;
+  document.querySelectorAll('#outletChips .fchip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateKPIs();
+  updateCharts();
+}
+function filterByMonthIndex(idx){
+  const row=D.monthly[idx];
+  if(!row)return;
+  const btn=document.querySelector('#monthChips .fchip[onclick*="\''+row.key+'\'"]');
+  if(btn)setMonth(row.key,btn);
+}
+
+function updateCharts(){
+  if(!window.Chart||!D.monthly?.length)return;
+  const rows=activeMonth==='all'?D.monthly:D.monthly.filter(r=>r.key===activeMonth);
+
+  // Monthly revenue bar — reflect outlet filter, highlight selected month
+  const mc=Chart.getChart('chartMonthly');
+  if(mc){
+    const val=r=>(activeOutlet==='spdve'?r.spdve:activeOutlet==='spgk'?r.spgk:r.revenue)/1e6;
+    const data=D.monthly.map(val);
+    const peakIdx=activeMonth==='all'
+      ?D.monthly.reduce((bi,_,i,a)=>data[i]>data[bi]?i:bi,0)
+      :D.monthly.findIndex(r=>r.key===activeMonth);
+    mc.data.datasets[0].data=data;
+    mc.data.datasets[0].backgroundColor=D.monthly.map((_,i)=>i===peakIdx?'#4f46e5':'#a5b4fc');
+    mc.data.datasets[1].data=data;
+    mc.update('none');
+  }
+
+  // Stacked outlet chart — dim non-selected months
+  const omc=Chart.getChart('chartOutletMonthly');
+  if(omc){
+    const fade=r=>activeMonth!=='all'&&r.key!==activeMonth;
+    omc.data.datasets[0].backgroundColor=D.monthly.map(r=>fade(r)?'#c7d2fe':'#4f46e5');
+    omc.data.datasets[1].backgroundColor=D.monthly.map(r=>fade(r)?'#a7f3d0':'#10b981');
+    omc.update('none');
+  }
+
+  // Outlet donut — recompute from filtered rows
+  const odc=Chart.getChart('chartOutletDonut');
+  if(odc){
+    const dve=rows.reduce((s,r)=>s+r.spdve,0);
+    const gk=rows.reduce((s,r)=>s+r.spgk,0);
+    const tot=(dve+gk)||1;
+    const dp=+(dve/tot*100).toFixed(1);
+    const gp=+(100-dp).toFixed(1);
+    odc.data.datasets[0].data=[dp,gp];
+    odc.data.labels=['adc SpDVE ('+dp+'%)','adc SpGK ('+gp+'%)'];
+    odc.update('none');
+  }
+}
+
+// YoY Comparison toggle (Phase 2)
+function toggleYoYCompare(btn){
+  compareYoY = !compareYoY;
+  if(btn) btn.classList.toggle('active', compareYoY);
+  updateKPIs();
+}
+function updateKPIs(){
+  const rows=activeMonth==='all'?D.monthly:D.monthly.filter(r=>r.key===activeMonth);
+  let rev=0,txns=0,dve=0,gk=0;
+  rows.forEach(r=>{
+    rev+=activeOutlet==='spdve'?r.spdve:activeOutlet==='spgk'?r.spgk:r.revenue;
+    txns+=r.txns; dve+=r.spdve; gk+=r.spgk;
+  });
+
+  // Base KPI updates (current period)
+  document.getElementById('kpiRev').textContent=rp(rev);
+  const outletFiltered=activeOutlet!=='all';
+  document.getElementById('kpiTxns').textContent=txns.toLocaleString();
+  document.getElementById('kpiTxnsSub').textContent=outletFiltered?'Both outlets (no per-outlet split)':'Unique invoices';
+  document.getElementById('kpiAov').textContent=outletFiltered?'—':rp(txns?rev/txns:0,2);
+  document.getElementById('kpiSpDVE').textContent=rp(dve);
+  document.getElementById('kpiSpGK').textContent=rp(gk);
+  const tot=dve+gk;
+  document.getElementById('kpiSpDVEPct').textContent=tot?(dve/tot*100).toFixed(1)+'% of total':'—';
+  document.getElementById('kpiSpGKPct').textContent=tot?(gk/tot*100).toFixed(1)+'% of total':'—';
+
+  const range=D_META?.monthRange||(D.monthly[0]?.month.replace('*','')+' – '+D.monthly[D.monthly.length-1]?.month.replace('*',''));
+  let baseSub = activeMonth==='all'?range+' 2026':((rows[0]?.month.replace('*','')||'')+' 2026');
+
+  // ── YoY Comparison (Phase 2) ───────────────────────────────────────────────
+  if(compareYoY){
+    const y2025 = D.yearly.find(y=>String(y.year)==='2025');
+    if(y2025){
+      const monthsSel = rows.length || 1;
+      let prevRev, prevTxns, prevAov, label;
+
+      if(activeMonth==='all'){
+        prevRev = y2025.revenue;
+        prevTxns = y2025.invoices;
+        prevAov = y2025.aov;
+        label = 'vs full 2025';
+      } else {
+        // Approximate previous period using 2025 monthly average
+        prevRev = Math.round((y2025.revenue / 12) * monthsSel);
+        prevTxns = Math.round((y2025.invoices / 12) * monthsSel);
+        prevAov = y2025.aov;
+        label = `vs 2025 avg × ${monthsSel} mo`;
+      }
+
+      const revDelta = prevRev ? ((rev - prevRev)/prevRev*100) : 0;
+      const txnsDelta = prevTxns ? ((txns - prevTxns)/prevTxns*100) : 0;
+      const aovDelta = prevAov ? (( (txns?rev/txns:0) - prevAov ) / prevAov * 100) : 0;
+
+      const deltaHTML = (val) => {
+        const cls = val>0 ? 'color:#059669' : val<0 ? 'color:#dc2626' : 'color:#6b7280';
+        const sign = val>0 ? '+' : '';
+        return `<span style="${cls};font-weight:700;">${sign}${val.toFixed(1)}%</span>`;
+      };
+
+      // Append comparison info to the subtext areas
+      document.getElementById('kpiRevSub').innerHTML =
+        baseSub + `<br><span style="font-size:0.78rem;">${label}: ${rp(prevRev)} ${deltaHTML(revDelta)}</span>`;
+
+      document.getElementById('kpiTxnsSub').innerHTML =
+        (outletFiltered?'Both outlets (no per-outlet split)':'Unique invoices') +
+        `<br><span style="font-size:0.78rem;">${label}: ${prevTxns.toLocaleString()} ${deltaHTML(txnsDelta)}</span>`;
+
+      if(!outletFiltered){
+        document.getElementById('kpiAov').innerHTML = rp(txns?rev/txns:0,2) + `<span style="font-size:0.7rem;font-weight:600;margin-left:6px;">${deltaHTML(aovDelta)}</span>`;
+      }
+
+      // Add small deltas to outlet cards too — derive split from live data
+      const liveSpdvePct = (D_META?.outletSpdvePct ?? (dve+gk ? dve/(dve+gk)*100 : 80)) / 100;
+      const dvePrev = Math.round((y2025.revenue / 12 * liveSpdvePct) * monthsSel);
+      const gkPrev = Math.round((y2025.revenue / 12 * (1 - liveSpdvePct)) * monthsSel);
+      // For simplicity we show overall previous only on the main revenue card; outlet cards get a note
+      document.getElementById('kpiSpDVEPct').innerHTML = tot?(dve/tot*100).toFixed(1)+'% of total' : '—';
+      document.getElementById('kpiSpGKPct').innerHTML = tot?(gk/tot*100).toFixed(1)+'% of total' : '—';
+    }
+  } else {
+    // Restore normal subtext when comparison is off
+    document.getElementById('kpiRevSub').textContent = baseSub;
+    document.getElementById('kpiTxnsSub').textContent = outletFiltered?'Both outlets (no per-outlet split)':'Unique invoices';
+    document.getElementById('kpiAov').textContent = outletFiltered?'—':rp(txns?rev/txns:0,2);
+  }
+}
+
+// ── SCORECARD ─────────────────────────────────────────────────────────────────
+function buildScorecard(){
+  const sc=document.getElementById('scorecard');
+  D.monthly.forEach(r=>{
+    const div=document.createElement('div');div.className='sc-card';
+    div.dataset.monthKey=r.key;
+    div.onclick=()=>{
+      const btn=document.querySelector('#monthChips .fchip[onclick*="\''+r.key+'\'"]');
+      if(btn)setMonth(r.key,btn);
+    };
+    const momTag=r.mom==null?'<span class="mom neutral">—</span>':r.mom===0?'<span class="mom neutral">Awal</span>':r.mom>0?'<span class="mom up">+'+r.mom+'%</span>':'<span class="mom down">'+r.mom+'%</span>';
+    div.title='Klik untuk memfilter KPI per '+idMonth(r.month);
+    div.innerHTML='<div class="sc-month">'+idMonth(r.month).toUpperCase()+'</div>'
+      +'<div class="sc-rev" style="color:'+(r.revenue>2500000000?'#059669':'#1a1a2e')+'">'+rp(r.revenue)+'</div>'
+      +'<div class="sc-split" style="color:#6b7280;">SpDVE '+(r.spdve/r.revenue*100).toFixed(0)+'% · SpGK '+(r.spgk/r.revenue*100).toFixed(0)+'%</div>'
+      +'<div class="sc-meta">'+r.txns.toLocaleString()+' txn · AOV '+rp(r.aov,2)+'</div>'
+      +'<div style="margin-top:6px;">'+momTag+'</div>'
+      +'<div class="sc-hint">↑ klik untuk memfilter KPI</div>';
+    sc.appendChild(div);
+  });
+}
+
+// ── CHARTS ────────────────────────────────────────────────────────────────────
+function addChart(cfg){const c=new Chart(cfg.ctx,cfg.config);chartInstances.push(c);return c;}
+function buildCharts(){
+  const labels=D.monthly.map(r=>idMonth(r.month));
+  const peakIdx=D.monthly.reduce((bi,m,i,arr)=>m.revenue>(arr[bi]?.revenue??0)?i:bi,0);
+  const spdvePct=D_META?.outletSpdvePct??Math.round(D.monthly.reduce((s,m)=>s+m.spdve,0)/D.monthly.reduce((s,m)=>s+m.revenue,0)*1000)/10;
+  const spgkPct=D_META?.outletSpgkPct??(100-spdvePct);
+  addChart({ctx:document.getElementById('chartMonthly'),config:{type:'bar',data:{labels,datasets:[
+    {label:'Pendapatan (IDR Jt)',data:D.monthly.map(r=>r.revenue/1e6),backgroundColor:labels.map((_,i)=>i===peakIdx?'#4f46e5':'#a5b4fc'),borderRadius:6,order:2},
+    {label:'Tren',data:D.monthly.map(r=>r.revenue/1e6),type:'line',borderColor:'#f59e0b',backgroundColor:'transparent',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#f59e0b',order:1}
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{y:{ticks:{callback:v=>'Rp '+v+'M'},grid:{color:'#f3f4f6'}},x:{grid:{display:false}}},
+    onClick: (evt, elements) => { if(elements.length>0) filterByMonthIndex(elements[0].index); }
+  }}});
+
+  addChart({ctx:document.getElementById('chartOutletMonthly'),config:{type:'bar',data:{labels,datasets:[
+    {label:'SpDVE',data:D.monthly.map(r=>r.spdve/1e6),backgroundColor:'#4f46e5',borderRadius:4},
+    {label:'SpGK', data:D.monthly.map(r=>r.spgk/1e6), backgroundColor:'#10b981',borderRadius:4}
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,ticks:{callback:v=>'Rp '+v+'M'},grid:{color:'#f3f4f6'}}},
+    onClick: (evt, elements) => { if(elements.length>0) filterByMonthIndex(elements[0].index); }
+  }}});
+
+  addChart({ctx:document.getElementById('chartOutletDonut'),config:{type:'doughnut',data:{labels:['adc SpDVE ('+spdvePct+'%)','adc SpGK ('+spgkPct+'%)'],datasets:[{data:[spdvePct,spgkPct],backgroundColor:['#4f46e5','#10b981'],borderWidth:3,borderColor:'#fff',hoverOffset:8}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}}});
+
+  const bestDow=D.dow.reduce((a,b)=>b.revenue>a.revenue?b:a,D.dow[0]);
+  addChart({ctx:document.getElementById('chartDow'),config:{type:'bar',data:{labels:D.dow.map(r=>idDay(r.day)),datasets:[{label:'Pendapatan (IDR Jt)',data:D.dow.map(r=>r.revenue/1e6),backgroundColor:D.dow.map(r=>r.day===bestDow?.day?'#4f46e5':'#c7d2fe'),borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'Rp '+v+'M'},grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}}});
+
+  addChart({ctx:document.getElementById('chartPay'),config:{type:'doughnut',data:{labels:D.payment.map(r=>r.method+' ('+r.pct+'%)'),datasets:[{data:D.payment.map(r=>r.pct),backgroundColor:['#4f46e5','#10b981','#f59e0b','#3b82f6','#8b5cf6'],borderWidth:3,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}}}}});
+
+  const cats=D.categories||[];
+  const catColors=['#4f46e5','#10b981','#f59e0b','#3b82f6','#8b5cf6','#ec4899'];
+  if(cats.length){
+    addChart({ctx:document.getElementById('chartCat'),config:{type:'bar',data:{labels:cats.map(c=>c.category),datasets:[{label:'Pendapatan (IDR Jt)',data:cats.map(c=>c.revenue/1e6),backgroundColor:catColors,borderRadius:6}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{ticks:{callback:v=>'Rp '+v+'M'},grid:{color:'#f3f4f6'}},y:{grid:{display:false}}}}}});
+  }
+
+  const nr=D.newReturning||[];
+  const nrLabels=nr.length?nr.map(r=>idMonth(r.month)):labels;
+  addChart({ctx:document.getElementById('chartNewLoyal'),config:{type:'bar',data:{labels:nrLabels,datasets:[
+    {label:'Baru',data:nr.length?nr.map(r=>r.new):[],backgroundColor:'#4f46e5',borderRadius:4},
+    {label:'Kembali',data:nr.length?nr.map(r=>r.returning):[],backgroundColor:'#a5b4fc',borderRadius:4}
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{font:{size:11}}}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,grid:{color:'#f3f4f6'}}}}}});
+
+  const vd=D.visitDist||[];
+  addChart({ctx:document.getElementById('chartVisitDist'),config:{type:'bar',data:{labels:vd.map(v=>v.bucket),datasets:[{label:'Patients',data:vd.map(v=>v.count),backgroundColor:'#6366f1',borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}}});
+
+  const svc=D.salesVsCollection||[];
+  if(svc.length&&document.getElementById('chartSalesCompare')){
+    addChart({ctx:document.getElementById('chartSalesCompare'),config:{type:'bar',data:{labels:svc.map(s=>idMonth(s.month)),datasets:[
+      {label:'Invoice (collected)',data:svc.map(s=>s.invoice/1e6),backgroundColor:'#4f46e5',borderRadius:4},
+      {label:'Collection summary',data:svc.map(s=>s.collection/1e6),backgroundColor:'#10b981',borderRadius:4},
+      {label:'Sales (accrual)',data:svc.map(s=>s.sales/1e6),backgroundColor:'#f59e0b',borderRadius:4}
+    ]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'Rp '+v+'M'},grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}}});
+  }
+
+  const dTop=D.doctors.slice(0,6);
+  addChart({ctx:document.getElementById('chartDoc'),config:{type:'bar',data:{labels:dTop.map(d=>d.name.replace(/, Sp.*/,'')),datasets:[{label:'Transactions',data:dTop.map(d=>d.txns),backgroundColor:dTop.map(d=>d.outlet==='SpDVE'?'#4f46e5':'#10b981'),borderRadius:6}]},options:{responsive:true,indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{color:'#f3f4f6'}},y:{grid:{display:false}}}}}});
+
+  const discPct=D.discounts?.discountedPct??15.3;
+  addChart({ctx:document.getElementById('chartDiscount'),config:{type:'doughnut',data:{labels:['Discounted ('+discPct+'%)','Full Price ('+(100-discPct).toFixed(1)+'%)'],datasets:[{data:[discPct,100-discPct],backgroundColor:['#f59e0b','#e5e7eb'],borderWidth:3,borderColor:'#fff'}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}}});
+
+  const yL=D.yearly.map(r=>r.year);
+  addChart({ctx:document.getElementById('chartYearRev'),config:{type:'bar',data:{labels:yL,datasets:[
+    {label:'Revenue (IDR B)',data:D.yearly.map(r=>r.revenue/1e9),backgroundColor:D.yearly.map(r=>r.year.startsWith('2026')?'#f59e0b':'#4f46e5'),borderRadius:6},
+    {type:'line',label:'Trend',data:D.yearly.map(r=>r.revenue/1e9),borderColor:'#ef4444',backgroundColor:'transparent',borderWidth:2,pointRadius:4,pointBackgroundColor:'#ef4444'}
+  ]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{ticks:{callback:v=>'Rp '+v.toFixed(1)+'B'},grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}}});
+
+  addChart({ctx:document.getElementById('chartYearPat'),config:{type:'bar',data:{labels:yL,datasets:[{label:'Unique Visitors',data:D.yearly.map(r=>r.visitors),backgroundColor:D.yearly.map(r=>r.year.startsWith('2026')?'#f59e0b':'#10b981'),borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}}});
+
+  addChart({ctx:document.getElementById('chartYearNew'),config:{type:'bar',data:{labels:yL,datasets:[{label:'New Registrations',data:D.yearly.map(r=>r.newReg),backgroundColor:D.yearly.map(r=>r.year.startsWith('2026')?'#f59e0b':'#6366f1'),borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}}});
+
+  addChart({ctx:document.getElementById('chartYearAOV'),config:{type:'line',data:{labels:yL,datasets:[{label:'AOV (IDR)',data:D.yearly.map(r=>r.aov),borderColor:'#4f46e5',backgroundColor:'rgba(79,70,229,0.08)',borderWidth:2.5,pointRadius:5,pointBackgroundColor:'#4f46e5',fill:true}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'Rp '+v.toLocaleString()},grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}}});
+
+  addChart({ctx:document.getElementById('chartYearCredit'),config:{type:'bar',data:{labels:yL,datasets:[{label:'Credit Excluded (IDR M)',data:D.yearly.map(r=>r.creditExcl/1e6),backgroundColor:'#f59e0b',borderRadius:6}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>'Rp '+v.toFixed(0)+'M'},grid:{color:'#f3f4f6'}},x:{grid:{display:false}}}}}});
+}
+
+// ── YEARLY TABLE ──────────────────────────────────────────────────────────────
+function buildYearTable(){
+  const tbody=document.getElementById('yearTableBody');
+  let prev=null;
+  const rows=[];
+  D.yearly.forEach(r=>{
+    const yoy=r.yoy!=null?r.yoy.toFixed(1):prev&&!r.year.startsWith('2026')?((r.revenue-prev)/prev*100).toFixed(1):null;
+    const ys=yoy==null?'<span style="color:#9ca3af;">—</span>':'<span style="color:'+(parseFloat(yoy)>0?'#059669':'#ef4444')+';font-weight:700;">'+(parseFloat(yoy)>0?'+':'')+yoy+'%</span>';
+    const pt=r.year.startsWith('2026')?' <span style="font-size:0.68rem;color:#f59e0b;">Jan–May</span>':'';
+    rows.push('<tr style="border-bottom:1px solid #f3f4f6;"><td style="padding:8px 12px;font-weight:700;">'+r.year+pt+'</td><td style="padding:8px 12px;text-align:right;">'+Math.round(r.revenue).toLocaleString()+'</td><td style="padding:8px 12px;text-align:right;">'+ys+'</td><td style="padding:8px 12px;text-align:right;">'+r.invoices.toLocaleString()+'</td><td style="padding:8px 12px;text-align:right;">'+Math.round(r.aov).toLocaleString()+'</td><td style="padding:8px 12px;text-align:right;">'+r.visitors.toLocaleString()+'</td><td style="padding:8px 12px;text-align:right;">'+r.newReg.toLocaleString()+'</td></tr>');
+    if(!r.year.startsWith('2026'))prev=r.revenue;
+  });
+  tbody.innerHTML=rows.join('');
+}
+
+// ── buildGrids, buildDocBars — in js/core.js ─────────────────────────────────
+
+// ── DOCTOR EFFICIENCY + INSIGHT CARDS (MIGRATED TO js/analytics.js) ──────────
+// Old implementations removed. The external module now provides buildDoctorEfficiency()
+// and buildInsightCards() (plus RFM, cohorts, forecast, STATS, etc.).
+
+// ── computeCohorts, buildCohortRetention — in js/analytics.js ────────────────
+
+// ── downloadBlob, buildForecast, updateForecast — in js/core.js / analytics.js ─
+
+function exportCSV(){
+  let csv='Month,Revenue (IDR),Transactions,AOV (IDR),SpDVE (IDR),SpGK (IDR),MoM %\n';
+  D.monthly.forEach(r=>{csv+=r.month+','+Math.round(r.revenue)+','+r.txns+','+Math.round(r.aov)+','+Math.round(r.spdve)+','+Math.round(r.spgk)+','+(r.mom??'')+'\n';});
+  downloadBlob(new Blob([csv],{type:'text/csv'}),'ADC_Revenue_2026.csv');
+}
+
+// ── STATS, buildAnalytics — in js/analytics.js ───────────────────────────────
+
+// ── RFM, getRefDate, computeRFMAndPareto, buildRFMPareto — in js/analytics.js ─
+
+
+// ── SAVED SEGMENTS (Phase 3) — MIGRATED TO js/segments.js (loaded via <script src>) ──
+// (Old block removed for modularization. The external module provides identical globals and behavior.)
+
+// ── Q&A — AI CONTEXT (built from live or embedded data) ───────────────────────
+let _qaCache=null;
+function invalidateQACache(){_qaCache=null;}
+
+function getQASystem(){
+  if(_qaCache)return _qaCache;
+  const range=D_META?.monthRange||'Jan–May';
+  const latest=D_META?.latestInvoiceDate?' through '+D_META.latestInvoiceDate:'';
+  let monthly='';
+  D.monthly.forEach(m=>{
+    const pctDve=m.revenue?(m.spdve/m.revenue*100).toFixed(1):0;
+    const pctGk=m.revenue?(m.spgk/m.revenue*100).toFixed(1):0;
+    const mom=m.mom!=null&&m.mom!==0?' | MoM '+(m.mom>0?'+':'')+m.mom+'%':'';
+    monthly+=m.month+': Rp '+Math.round(m.revenue).toLocaleString()+' | '+m.txns+' txns | AOV Rp '+Math.round(m.aov).toLocaleString()+' | SpDVE '+pctDve+'% / SpGK '+pctGk+'%'+mom+'\n';
+  });
+
+  // All items ranked — enables bottom 10, outlet-specific, and any ranking query
+  const allItems=D.items.map((i,idx)=>'#'+(idx+1)+' '+i.item+' ['+i.outlet+'] Rp '+(i.revenue/1e6).toFixed(1)+'M | '+i.txns+' txns | AOV Rp '+Math.round(i.revenue/(i.txns||1)).toLocaleString()).join('\n');
+  const spgkItems=D.items.filter(i=>i.outlet==='SpGK').map(i=>i.item+' Rp '+(i.revenue/1e6).toFixed(1)+'M | '+i.txns+' txns').join('\n');
+
+  // All doctors with rev-per-txn for efficiency queries
+  const allDocs=D.doctors.map(d=>d.name+' ['+d.outlet+'] Rp '+(d.revenue/1e9).toFixed(3)+'B | '+d.txns+' txns | rev/txn Rp '+Math.round(d.revenue/(d.txns||1)).toLocaleString()).join('\n');
+
+  // Top 15 patients with spend-per-visit
+  const topPatients=D.patients.length
+    ?D.patients.slice(0,15).map(p=>'#'+p.rank+' MRN:'+p.mrn+(p.name?' ('+p.name+')':'')+' | '+p.visits+' visits | Rp '+(p.revenue/1e6).toFixed(2)+'M total | Rp '+Math.round(p.revenue/(p.visits||1)).toLocaleString()+'/visit').join('\n')
+    :'Not available';
+
+  const pay=D.payment.map(p=>p.method+' '+p.pct+'%').join(' | ');
+  const dowData=D.dow.map(d=>d.day+': Rp '+(d.revenue/1e6).toFixed(1)+'M').join(' | ');
+  const bestDay=D.dow.reduce((a,b)=>b.revenue>a.revenue?b:a,D.dow[0]);
+  const bestMonth=D.monthly.reduce((a,b)=>b.revenue>a.revenue?b:a,D.monthly[0]);
+  const credit=D_META?.creditExcluded??1007578967;
+  const creditInv=D_META?.creditInvoices??125;
+  const y26=D.yearly.find(r=>String(r.year).startsWith('2026'));
+  const discStr=D.discounts
+    ?('Total discounts given: Rp '+(D.discounts.totalDiscount/1e6).toFixed(1)+'M | Discounted invoices: '+D.discounts.discountedInvoices+' ('+D.discounts.discountedPct+'%) | Gross pre-discount: Rp '+(D.discounts.grossTotal/1e6).toFixed(1)+'M')
+    :'Discount detail not yet available in this export';
+
+  // ── PATIENT PROFILES — AGGRESSIVELY LIMITED TO PREVENT TOKEN OVERFLOW ─────────
+  // The base prompt can NEVER include more than a small number of patient rows.
+  // Historical problem: even "top 80" eventually exceeded 200k tokens as other context grew.
+  // Strategy (permanent):
+  //   • Base context = only the very highest-value patients (summary row only).
+  //   • Detailed treatment/doctor history is injected on-demand via findMentionedPatients()
+  //     when the user names a specific patient (MRN or name parts).
+  //   • This function must stay under ~180k tokens even after future feature additions.
+  // If you ever see the "prompt too long" error again, LOWER TOP_N or shorten the row format.
+  let patientLines='';
+  const allProfiles=D.patientProfiles||[];
+  const activeLapsing = allProfiles.filter(p=>p.lifecycle==='active'||p.lifecycle==='lapsing');
+  
+  // Hard cap — do NOT raise this without also shortening the row format below.
+  const TOP_N = 30;   // lowered from 80 after repeated 200k+ token errors (2026-05)
+  const profiles = [...activeLapsing]
+    .sort((a,b)=>(b.totalSpend||0)-(a.totalSpend||0))
+    .slice(0, TOP_N);
+
+  profiles.forEach(p=>{
+    // Keep each line SHORT — only the most essential fields.
+    // Full treatment lists and doctor details are expensive in tokens.
+    // On-demand injection (findMentionedPatients + buildPatientContext) supplies the rich version.
+    const topTx = (p.treatments||[]).slice(0,1)[0];   // only the single highest item
+    const txStr = topTx ? (topTx.item.replace(/[,|]/g,' ').substring(0,18)+'×'+topTx.qty) : '—';
+    const drStr = (p.doctors||[]).map(d=>d.replace(/,\s*Sp.*/,'').replace('dr. ','')).slice(0,1).join('+') || '—';
+    const spendM = (p.totalSpend/1e6).toFixed(1)+'M';
+    const spv = p.visits ? (p.totalSpend/p.visits/1e6).toFixed(1)+'M' : '—';
+
+    patientLines += p.mrn+'|'+(p.name||'—')+'|'+(p.phone?'☎':'')+'|'+(p.outlet||'—')+'|'
+      +(p.lifecycle||'—')+'|'+spendM+'|'+p.visits+'v|'+spv+'/v|'+(p.lastVisit||'—')
+      +'|'+txStr+'|'+drStr+'\n';
+  });
+
+  const omittedCount = activeLapsing.length - profiles.length;
+  const omittedNote = omittedCount > 0 
+    ? `\n(Note: Only the top ${profiles.length} highest-value active/lapsing patients are shown here to keep the prompt under token limits. There are ${omittedCount.toLocaleString()} more. Full detailed profiles (treatments, doctors, history) are automatically injected when the user mentions a specific patient name or MRN.)`
+    : '';
+
+  // New vs returning by month
+  const newRet=D.newReturning||[];
+  const newRetStr=newRet.length
+    ?newRet.map(r=>r.month+': '+r.new+' new / '+r.returning+' returning').join(' | ')
+    :'Not available';
+
+  // Pre-computed analytics block
+  const S=STATS;
+  const rfmBlock = RFM ? `
+RFM PATIENT SEGMENTS (Recency × Frequency × Monetary):
+${RFM.segments.map(s=>`  ${s.name}: ${s.count.toLocaleString()} patients | ${rp(s.totalSpend)} total | avg ${rp(s.avgSpend,1)} | ${s.withPhone} with phone`).join('\n')}
+REVENUE CONCENTRATION (Pareto):
+  Top ~10% of patients drive ${RFM.summary.top10Pct}% of lifetime revenue
+  Top 50 patients drive ${RFM.summary.top50Pct}% of lifetime revenue
+` : '';
+
+  const cohortSummary = COHORTS ? `COHORT RETENTION: ${COHORTS.summary.cohortCount} cohorts • Avg return rate ${COHORTS.summary.avgReturnedPct}% across all patients` : '';
+
+  const analyticsBlock=S.total?`
+PATIENT ANALYTICS — pre-computed from all ${S.total.toLocaleString()} patient profiles:
+
+SPEND SEGMENTS:
+  High Value (≥Rp 10M): ${S.high.length.toLocaleString()} patients | avg Rp ${(S.high.reduce((a,p)=>a+p.totalSpend,0)/(S.high.length||1)/1e6).toFixed(2)}M spend | avg ${(S.high.reduce((a,p)=>a+p.visits,0)/(S.high.length||1)).toFixed(1)} visits each
+  Mid Value (Rp 3–10M): ${S.mid.length.toLocaleString()} patients | avg Rp ${(S.mid.reduce((a,p)=>a+p.totalSpend,0)/(S.mid.length||1)/1e6).toFixed(2)}M spend | avg ${(S.mid.reduce((a,p)=>a+p.visits,0)/(S.mid.length||1)).toFixed(1)} visits each
+  Entry Level (<Rp 3M): ${S.low.length.toLocaleString()} patients | avg Rp ${(S.low.reduce((a,p)=>a+p.totalSpend,0)/(S.low.length||1)/1e6).toFixed(2)}M spend | avg ${(S.low.reduce((a,p)=>a+p.visits,0)/(S.low.length||1)).toFixed(1)} visits each
+
+LIFECYCLE PERFORMANCE (averages per patient):
+  Active  (${S.lcStats.active.count}): Rp ${(S.lcStats.active.avgSpend/1e6).toFixed(2)}M avg spend | ${S.lcStats.active.avgVisits.toFixed(1)} avg visits | ${S.lcStats.active.withPhone} have phone
+  Lapsing (${S.lcStats.lapsing.count}): Rp ${(S.lcStats.lapsing.avgSpend/1e6).toFixed(2)}M avg spend | ${S.lcStats.lapsing.avgVisits.toFixed(1)} avg visits | ${S.lcStats.lapsing.withPhone} have phone
+  Dormant (${S.lcStats.dormant.count}): Rp ${(S.lcStats.dormant.avgSpend/1e6).toFixed(2)}M avg spend | ${S.lcStats.dormant.avgVisits.toFixed(1)} avg visits | ${S.lcStats.dormant.withPhone} have phone
+
+VISIT FREQUENCY (lifetime):
+  1 visit: ${S.vd['1']} patients | 2–5 visits: ${S.vd['2-5']} | 6–10 visits: ${S.vd['6-10']} | 11+ visits: ${S.vd['11+']}
+PATIENTS VISITING BOTH CLINICS (SpDVE + SpGK): ${S.bothOutlets}
+PATIENTS WITH PHONE NUMBER: ${S.withPhone} of ${S.total} (${(S.withPhone/S.total*100).toFixed(0)}%)
+PATIENTS WHO USED DISCOUNTS: ${S.withDiscount} (${(S.withDiscount/S.total*100).toFixed(0)}%)
+HIGH-VALUE DORMANT (≥Rp 5M spend, no 2026 visit): ${S.highDormant.length} patients — priority re-engagement targets
+
+TOP 25 TREATMENTS BY PATIENT REACH (unique patients who received each service, across all ${S.total.toLocaleString()} profiles):
+${S.topTx.map(t=>'  '+t.name+' — '+t.patients+' patients | '+t.totalQty+' total units | avg Rp '+(t.avgSpend/1e6).toFixed(2)+'M/patient').join('\n')}
+${rfmBlock}
+${cohortSummary ? '\n' + cohortSummary : ''}
+`:'(analytics not yet computed — data may still be loading)';
+
+  const result=`You are a precise data analyst for ADC Clinic (Indonesia) — a dermatology clinic (SpDVE) and clinical nutrition clinic (SpGK). Answer concisely and directly. Format currency as Rp (IDR). Base answers only on the data below. Do NOT invent numbers not present in the data.
+
+DATA CONTEXT — ADC Clinic ${range} 2026${latest} (source: ${dataLoadSource}):
+
+MONTHLY REVENUE (credit/voucher excluded, per invoice):
+${monthly}
+Credit excluded: Rp ${Math.round(credit).toLocaleString()} (${creditInv} invoices — CREDIT VOUCHER redemptions and CV- package purchases excluded from all figures)
+2026 YTD: Rp ${y26?Math.round(y26.revenue).toLocaleString():'—'} | ${y26?y26.invoices:'—'} invoices
+Run-rate (annualised from Jan–Apr avg): Rp ${y26&&y26.invoices?(()=>{const avg=D.monthly.filter(m=>m.key!=='may').reduce((s,m)=>s+m.revenue,0)/Math.max(D.monthly.filter(m=>m.key!=='may').length,1);return rp(avg*12);})():'—'}
+
+NEW vs RETURNING PATIENTS by month: ${newRetStr}
+
+ALL SERVICES ranked by revenue:
+${allItems}
+
+ALL DOCTORS (revenue, transactions, revenue-per-transaction):
+${allDocs}
+
+TOP 15 PATIENTS BY TOTAL SPEND:
+${topPatients}
+
+PAYMENT METHODS: ${pay}
+REVENUE BY DAY OF WEEK: ${dowData}
+BEST DAY: ${bestDay?.day||'—'} | BEST MONTH: ${bestMonth?.month||'—'}
+
+DISCOUNTS: ${discStr}
+
+CATEGORIES: ${(D.categories||[]).slice(0,6).map(c=>c.category+' Rp '+(c.revenue/1e6).toFixed(0)+'M').join(' | ')}
+
+COMMISSION: Total ${D.commission?rp(D.commission.total):'—'} | Top therapist ${D.commission?.therapists?.[0]?.name||'—'}
+
+YEARLY TREND: 2023 Rp 14.59B | 2024 Rp 24.24B (+66.1%) | 2025 Rp 30.13B (+24.3%) | 2026 Jan–May Rp ${y26?rp(y26.revenue):'—'}
+
+UNIQUE PATIENTS: ${D_META?.uniqueCustomers?.toLocaleString()||'—'} unique MRNs across all source files
+DATA FILES: ${D_META?.rawFilesCount||26} CSVs — invoice, collection, sales, commission reports
+${analyticsBlock}
+DASHBOARD TOOLS (instant patient-level queries — no AI token cost):
+- Remarketing tab: filter all ${allProfiles.length.toLocaleString()} patients by lifecycle/outlet/treatment/phone, export CSV
+- Cross-Product Analysis: find patients who received ALL of any combination of services
+
+PATIENT PROFILES — ${profiles.length} highest-value active/lapsing patients shown here (dormant excluded; many others omitted to stay under token limits).
+Columns: MRN|Name|Phone|Outlet|Lifecycle|TotalSpend|Visits|SpendPerVisit|LastVisit|Top4Treatments×qty|Doctor
+Lifecycle: active=visited Apr/May 2026, lapsing=visited Jan-Mar 2026.
+${patientLines}${omittedNote}`;
+  _qaCache=result;
+  return result;
+}
+
+// ── Q&A — PATIENT LOOKUP (injects full profile for any named patient) ──────────
+function findMentionedPatients(q){
+  const allProfiles=D.patientProfiles||[];
+  const found=[];
+  const qLow=q.toLowerCase();
+  // Match MRN patterns like EM-22120004 or SP-23050001
+  const mrnHits=q.match(/\b(EM|SP|em|sp)-\d{6,}\b/gi)||[];
+  mrnHits.forEach(mrn=>{
+    const p=allProfiles.find(x=>x.mrn&&x.mrn.toLowerCase()===mrn.toLowerCase());
+    if(p&&!found.includes(p))found.push(p);
+  });
+  // Match by patient name — require all name parts (>3 chars) present in question
+  allProfiles.forEach(p=>{
+    if(found.includes(p))return;
+    const name=(p.name||'').toLowerCase().trim();
+    if(name.length<5)return;
+    const parts=name.split(/\s+/).filter(w=>w.length>3);
+    if(parts.length>=2&&parts.every(part=>qLow.includes(part)))found.push(p);
+    else if(parts.length===1&&name.length>=8&&qLow.includes(name))found.push(p);
+  });
+  return found;
+}
+
+function buildPatientContext(patients){
+  if(!patients.length)return'';
+  let ctx='\n\n=== FULL PATIENT PROFILES (looked up from complete database — all 6,118 patients, any lifecycle) ===\n';
+  patients.forEach(p=>{
+    const txLines=(p.treatments||[]).map(t=>'  • '+t.item+' — qty '+t.qty+', spend Rp '+(t.spend/1e6).toFixed(2)+'M').join('\n');
+    ctx+='\nName: '+(p.name||'—')+' | MRN: '+p.mrn
+      +'\nOutlet: '+(p.outlet||'—')+' | Lifecycle: '+(p.lifecycle||'—')
+      +'\nTotal Spend: Rp '+(p.totalSpend/1e6).toFixed(2)+'M | Visits: '+p.visits
+      +'\nLast Visit: '+(p.lastVisit||'Unknown')+(p.lastVisitDate?' ('+p.lastVisitDate+')':'')
+      +'\nPhone: '+(p.phone||'not on file')
+      +'\nDoctors: '+((p.doctors||[]).join(', ')||'—')
+      +'\nTop Treatment History (up to 10 by spend):\n'+(txLines||'  (no treatment breakdown available)')
+      +'\nTop Payment: '+(p.topPayment||'—')+' | Discount Used: '+(p.discountUsed?'Yes':'No')
+      +'\n';
+  });
+  return ctx;
+}
+
+// ── MARKDOWN RENDERER (minimal — bold, italic, code, bullets, numbered lists) ──
+function renderMd(text){
+  const lines=text.split('\n');
+  const out=[];
+  let inList=false,listOrdered=false;
+  const closeList=()=>{if(inList){out.push(listOrdered?'</ol>':'</ul>');inList=false;}};
+  const inline=s=>s
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/`([^`]+)`/g,'<code style="background:#f3f4f6;padding:1px 5px;border-radius:4px;font-size:0.85em;">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  lines.forEach(raw=>{
+    const line=raw.trimEnd();
+    const olMatch=line.match(/^(\s*)\d+\.\s+(.*)/);
+    const ulMatch=line.match(/^(\s*)[-*]\s+(.*)/);
+    const h3Match=line.match(/^###\s+(.*)/);
+    const h2Match=line.match(/^##\s+(.*)/);
+    if(h2Match){closeList();out.push('<strong style="font-size:1em;display:block;margin-top:10px;">'+inline(h2Match[1])+'</strong>');return;}
+    if(h3Match){closeList();out.push('<strong style="display:block;margin-top:8px;">'+inline(h3Match[1])+'</strong>');return;}
+    if(olMatch){if(!inList||!listOrdered){closeList();out.push('<ol style="margin:6px 0 6px 20px;">');inList=true;listOrdered=true;}out.push('<li>'+inline(olMatch[2])+'</li>');return;}
+    if(ulMatch){if(!inList||listOrdered){closeList();out.push('<ul style="margin:6px 0 6px 20px;">');inList=true;listOrdered=false;}out.push('<li>'+inline(ulMatch[2])+'</li>');return;}
+    closeList();
+    out.push(line===''?'<div style="height:6px;"></div>':'<div>'+inline(line)+'</div>');
+  });
+  closeList();
+  return out.join('');
+}
+
+// ── Q&A — FUNCTIONS ───────────────────────────────────────────────────────────
+function ask(q){document.getElementById('qaInput').value=q;submitQ();}
+
+// ── PII PSEUDONYMIZATION (AI path only) ───────────────────────────────────────
+// Replaces every patient/doctor name, MRN, and phone with a stable token before
+// the prompt leaves the browser, then restores the real values in Claude's reply.
+// Identifiers never hit the wire; the model reasons over [PATIENT_1] / [DOCTOR_1].
+let _piiMap = {};      // token → real value (used to restore the reply locally)
+let _piiPairs = [];    // {value, token}, longest value first (avoids substring clashes)
+
+function refreshPiiMap(){
+  _piiMap = {};
+  _piiPairs = [];
+  const seen = new Set();
+  const add = (value, token) => {
+    const v = String(value == null ? '' : value).trim();
+    if(v.length < 2 || seen.has(v)) return;
+    seen.add(v);
+    _piiPairs.push({value:v, token});
+    _piiMap[token] = v;
+  };
+  (D.patientProfiles || []).forEach((p, i) => {
+    const n = i + 1;
+    add(p.name,  'PATIENT_' + n);
+    add(p.mrn,   'PATIENT_' + n + '_ID');
+    add(p.phone, 'PATIENT_' + n + '_TEL');
+  });
+  const docNames = new Set();
+  (D.doctors || []).forEach(d => { if(d.name) docNames.add(d.name); });
+  (D.patientProfiles || []).forEach(p => (p.doctors || []).forEach(dn => { if(dn) docNames.add(dn); }));
+  let di = 0;
+  docNames.forEach(dn => add(dn, 'DOCTOR_' + (++di)));
+  // Replace longer values first so a short name can't corrupt a longer one.
+  _piiPairs.sort((a, b) => b.value.length - a.value.length);
+}
+
+function redactPII(text){
+  if(!text) return text;
+  let out = String(text);
+  _piiPairs.forEach(({value, token}) => {
+    if(out.includes(value)) out = out.split(value).join('[' + token + ']');
+  });
+  // Safety net for any identifier missed above (unmapped MRN / phone shapes).
+  out = out.replace(/\b(EM|SP)-\d{6,}\b/gi, '[ID_REDACTED]')
+           .replace(/\b0\d{8,13}\b/g, '[TEL_REDACTED]');
+  return out;
+}
+
+function restorePII(text){
+  if(!text) return text;
+  let out = String(text);
+  Object.entries(_piiMap).forEach(([token, value]) => {
+    out = out.split('[' + token + ']').join(value);
+  });
+  return out;
+}
+
+async function submitQ(){
+  const q=document.getElementById('qaInput').value.trim();
+  if(!q)return;
+
+  // Auto-inject full profile for any patient name / MRN mentioned
+  const mentionedPts=findMentionedPatients(q);
+  const patientCtx=buildPatientContext(mentionedPts);
+  const userMsg=patientCtx?q+patientCtx:q;
+
+  // Pseudonymize all names / MRNs / phones before anything leaves the browser.
+  refreshPiiMap();
+  const safeUserMsg=redactPII(userMsg);
+  const safeSystem='Selalu jawab dalam Bahasa Indonesia yang jelas dan ringkas.\n\n'+redactPII(getQASystem());
+
+  // Cowork bridge takes priority
+  if(typeof window.sendPrompt==='function'){
+    window.sendPrompt(safeSystem+'\n\nQuestion: '+safeUserMsg);
+    document.getElementById('qaInput').value='';
+    return;
+  }
+
+  // Browser mode — needs API key
+  const apiKey=localStorage.getItem('adc_claude_key');
+  if(!apiKey){openSettings();return;}
+
+  const btn=document.getElementById('askBtn');
+  const respDiv=document.getElementById('qaResponse');
+  const respText=document.getElementById('qaResponseText');
+
+  // --- Permanent guard against the "prompt too long" error ---
+  // Rough estimate (characters / 4). Real tokenizers vary, but this is a reliable early warning.
+  const roughTokens = Math.ceil((safeSystem.length + safeUserMsg.length) / 4);
+  if (roughTokens > 195000) {
+    respDiv.classList.add('visible');
+    respText.innerHTML = '<span style="color:#dc2626;">⚠️ Pertanyaan ini terlalu luas untuk jendela konteks saat ini (~' + roughTokens.toLocaleString() + ' token diperkirakan).<br>' +
+      'Please mention specific patient names or MRNs, or narrow the question (e.g. "for the top 5 patients by spend…").<br>' +
+      'The base prompt deliberately contains only summary rows + high-value samples to stay under limits.</span>';
+    btn.textContent='Tanya Claude ↗';btn.disabled=false;
+    document.getElementById('qaInput').value='';
+    return;
+  }
+
+  btn.textContent='Memproses…';btn.disabled=true;
+  respDiv.classList.add('visible');
+  const lookupNote=mentionedPts.length?'<span class="qa-thinking">Ditemukan '+mentionedPts.length+' pasien di database — menanyakan Claude Haiku…</span>':'<span class="qa-thinking">Menanyakan Claude Haiku…</span>';
+  respText.innerHTML=lookupNote;
+  document.getElementById('qaInput').value='';
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:1024,
+        system:safeSystem,
+        messages:[{role:'user',content:safeUserMsg}]
+      })
+    });
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      const msg=err?.error?.message||res.statusText;
+      if(res.status===401)respText.innerHTML='<span style="color:#ef4444;">❌ Kunci API tidak valid. Klik <strong>⚙ Kunci AI</strong> untuk memperbaruinya.</span>';
+      else respText.innerHTML='<span style="color:#ef4444;">❌ Kesalahan API ('+res.status+'): '+msg+'</span>';
+    }else{
+      const data=await res.json();
+      respText.innerHTML=renderMd(restorePII(data?.content?.[0]?.text||'Tidak ada respons.'));
+    }
+  }catch(e){
+    respText.innerHTML='<span style="color:#ef4444;">❌ Kesalahan jaringan. Pastikan dasbor dibuka lewat aplikasi (localhost), bukan sebagai berkas file://.</span>';
+  }
+  btn.textContent='Tanya Claude ↗';btn.disabled=false;
+}
+
+// ── EXPORT DROPDOWN ──────────────────────────────────────────────────────────
+function toggleExportMenu(e){
+  e.stopPropagation();
+  document.getElementById('exportMenu').classList.toggle('open');
+}
+function closeExportMenu(){
+  document.getElementById('exportMenu').classList.remove('open');
+}
+document.addEventListener('click',()=>closeExportMenu());
+
+function exportAllPatients(){
+  const profiles=D.patientProfiles||[];
+  if(!profiles.length){alert('No patient profile data loaded. Run build_dashboard_data.py first.');return;}
+  let csv='MRN,Name,Phone,Outlet,Lifecycle,TotalSpend,Visits,LastVisit,LastVisitDate,TopTreatment,Doctor,DiscountUsed\n';
+  profiles.forEach(p=>{
+    const top=(p.treatments||[])[0]?.item||'';
+    const dr=(p.doctors||[])[0]||'';
+    csv+=[p.mrn,'"'+(p.name||'')+'"',p.phone||'',p.outlet||'',p.lifecycle||'',
+          Math.round(p.totalSpend),p.visits,p.lastVisit||'',p.lastVisitDate||'',
+          '"'+top.replace(/"/g,"'")+'"','"'+dr.replace(/"/g,"'")+'"',p.discountUsed?'Yes':'No'].join(',')+'\n';
+  });
+  downloadBlob(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}),'ADC_All_Patients.csv');
+}
+
+function exportProductsCSV(){
+  let csv='Rank,Service/Product,Code,Outlet,Revenue (IDR),Qty,Transactions,AOV (IDR)\n';
+  D.items.forEach((r,i)=>{
+    csv+=(i+1)+',"'+r.item.replace(/"/g,"'")+'",'+(r.code||'')+',' +r.outlet+','+Math.round(r.revenue)+','+r.qty+','+r.txns+','+Math.round(r.revenue/(r.txns||1))+'\n';
+  });
+  downloadBlob(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'}),'ADC_Products_Services.csv');
+}
+
+// ── Q&A TOGGLE ────────────────────────────────────────────────────────────────
+function toggleQA(){
+  const body=document.getElementById('qaBody');
+  const btn=document.getElementById('qaToggleBtn');
+  if(!body||!btn)return;
+  const collapsed=body.classList.toggle('collapsed');
+  btn.textContent=collapsed?'▼ Expand':'▲ Collapse';
+}
+
+// ── DATA SOURCES MODAL ────────────────────────────────────────────────────────
+function openDataSources(){document.getElementById('dataSourcesModal').classList.add('open');}
+function closeDataSources(){document.getElementById('dataSourcesModal').classList.remove('open');}
+
+// ── PATIENT DETAIL MODAL ─────────────────────────────────────────────────────
+function showPatientDetail(mrn){
+  const p=(D.patientProfiles||[]).find(x=>x.mrn===mrn);
+  if(!p)return;
+
+  // Header
+  document.getElementById('ptName').textContent=p.name||'Unknown Patient';
+  document.getElementById('ptSub').textContent='MRN: '+p.mrn+(p.phone?' · 📞 '+p.phone:' · no phone on file');
+  const badge=document.getElementById('ptBadge');
+  badge.textContent=(p.lifecycle||'—').charAt(0).toUpperCase()+(p.lifecycle||'').slice(1);
+  badge.className='pt-badge '+(p.lifecycle||'');
+
+  // KPI cards
+  const spv=p.visits?rp(p.totalSpend/p.visits,2):'—';
+  document.getElementById('ptKpis').innerHTML=
+    kpiBox(rp(p.totalSpend,2),'Total Spend')+
+    kpiBox(p.visits,'Total Visits')+
+    kpiBox(p.lastVisitDate||p.lastVisit||'—','Last Visit')+
+    kpiBox(spv,'Spend / Visit');
+
+  // Treatment rows
+  const txs=p.treatments||[];
+  const maxSpend=Math.max(...txs.map(t=>t.spend||0),1);
+  document.getElementById('ptTreatments').innerHTML=txs.length
+    ?txs.map((t,i)=>{
+        const pct=p.totalSpend?(t.spend/p.totalSpend*100).toFixed(0):0;
+        const barW=((t.spend||0)/maxSpend*100).toFixed(0);
+        return '<div class="pt-tx-row">'
+          +'<div class="pt-tx-num">'+(i+1)+'</div>'
+          +'<div class="pt-tx-name">'+escHtml(t.item||'—')
+            +'<div class="pt-tx-bar-bg"><div class="pt-tx-bar-fg" style="width:'+barW+'%"></div></div></div>'
+          +'<div class="pt-tx-qty">×'+t.qty+'</div>'
+          +'<div class="pt-tx-spend">'+rp(t.spend,2)+'<span class="pt-tx-pct">'+pct+'% of total</span></div>'
+          +'</div>';
+      }).join('')
+    :'<p style="color:#9ca3af;font-size:0.82rem;padding:14px 0;">No treatment breakdown available for this patient.</p>';
+
+  // Footer details
+  const dr=(p.doctors||[]).join(' · ')||'—';
+  document.getElementById('ptFooter').innerHTML=
+    '<strong>Outlet:</strong> '+(p.outlet||'—')
+    +'&nbsp;&nbsp;<strong>Doctors:</strong> '+escHtml(dr)
+    +'&nbsp;&nbsp;<strong>Top Payment:</strong> '+(p.topPayment||'—')
+    +'&nbsp;&nbsp;<strong>Discount Used:</strong> '+(p.discountUsed?'<span style="color:#d97706;">Yes</span>':'No')
+    +'&nbsp;&nbsp;<button class="pt-view-btn" onclick="lqShowPatient(\''+escHtml(p.mrn)+'\')">📅 Dated history ▶</button>';
+
+  document.getElementById('patientDetailModal').classList.add('open');
+}
+
+function kpiBox(val,label){
+  return '<div class="pt-kpi"><div class="pt-kpi-v">'+val+'</div><div class="pt-kpi-l">'+label+'</div></div>';
+}
+
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function closePatientDetail(){
+  document.getElementById('patientDetailModal').classList.remove('open');
+}
+
+// Click outside to close
+document.getElementById('patientDetailModal').addEventListener('click',e=>{
+  if(e.target===document.getElementById('patientDetailModal'))closePatientDetail();
+});
+
+// ── REMARKETING + CROSS-PRODUCT (MIGRATED TO js/remarketing.js) ──────────────
+// Old monolithic block removed. The external module (loaded via <script src> in <head>)
+// provides identical globals (rmkFilter, rmkFiltered, cross*, setRmk*, applyRmkFilter,
+// buildRemarketing, runCrossProduct, export*, etc.) and the same delegated listeners.
+
+// (Settings / dataSources modal close listeners moved or duplicated in core if needed.)
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded',async()=>{
+  updateSettingsBtn();
+  await loadRecentData();
+  try{ rebuildDashboard(); }catch(e){ console.error('rebuildDashboard error:',e); }
+  const ov=document.getElementById('loadingOverlay');
+  if(ov)ov.style.display='none';
+});
+</script>
+</body>
+</html>

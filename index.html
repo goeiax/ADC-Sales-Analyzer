@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Monthly Analytics</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        body { font-family: 'Inter', system_ui, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+    <!-- Sidebar -->
+    <div class="flex h-screen">
+        <div class="w-64 bg-white border-r border-gray-200 flex flex-col">
+            <div class="px-6 py-8 flex items-center gap-3">
+                <div class="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center text-white font-bold text-xl">POS</div>
+                <h1 class="text-2xl font-semibold">POS Analytics</h1>
+            </div>
+            
+            <nav class="flex-1 px-3 space-y-1">
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-2xl font-medium bg-emerald-50 text-emerald-700">
+                    <i class="fas fa-chart-bar w-5"></i>
+                    <span>Monthly Overview</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-2xl font-medium">
+                    <i class="fas fa-table w-5"></i>
+                    <span>Data Table</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-100 rounded-2xl font-medium">
+                    <i class="fas fa-cog w-5"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="p-4 border-t">
+                <div class="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-3xl">
+                    <div class="w-8 h-8 bg-emerald-600 text-white rounded-2xl flex items-center justify-center font-bold">AG</div>
+                    <div>
+                        <p class="font-medium">Alex Gunarian</p>
+                        <p class="text-xs text-gray-500">Cimahi, West Java</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <!-- Top Bar -->
+            <header class="h-16 bg-white border-b flex items-center px-8 justify-between">
+                <div class="flex items-center gap-4">
+                    <h2 class="text-2xl font-semibold">Monthly POS Analytics • 2025</h2>
+                </div>
+                
+                <div class="flex items-center gap-6">
+                    <!-- CSV Import -->
+                    <div class="flex items-center gap-3">
+                        <button onclick="downloadSampleCSV()" 
+                                class="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 hover:border-gray-400 rounded-3xl text-sm font-medium">
+                            <i class="fas fa-download"></i>
+                            <span>Sample CSV</span>
+                        </button>
+                        
+                        <label onclick="document.getElementById('csvUpload').click()"
+                               class="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-3xl text-sm font-medium cursor-pointer">
+                            <i class="fas fa-upload"></i>
+                            <span>Import CSV</span>
+                        </label>
+                        <input type="file" id="csvUpload" accept=".csv" class="hidden" onchange="handleCSVImport(event)">
+                    </div>
+
+                    <div class="relative">
+                        <input type="text" id="searchInput" placeholder="Search months..." 
+                               class="bg-gray-100 border border-transparent focus:border-gray-300 w-72 pl-10 py-2.5 rounded-3xl text-sm focus:outline-none">
+                        <i class="fas fa-search absolute left-4 top-3.5 text-gray-400"></i>
+                    </div>
+                    
+                    <button onclick="toggleDarkMode()" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-moon text-xl"></i>
+                    </button>
+                    
+                    <div class="flex items-center gap-2">
+                        <div class="text-right">
+                            <p class="text-sm font-medium">Alex Gunarian</p>
+                            <p class="text-xs text-gray-500">Cimahi, Indonesia</p>
+                        </div>
+                        <div class="w-9 h-9 bg-emerald-600 text-white rounded-2xl flex items-center justify-center font-bold">AG</div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dashboard Body -->
+            <div class="flex-1 p-8 overflow-auto">
+                <!-- KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="kpiCards">
+                    <!-- Populated by JavaScript -->
+                </div>
+
+                <!-- Charts & Table -->
+                <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Main Chart -->
+                    <div class="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                        <h3 class="font-semibold mb-4 flex items-center justify-between">
+                            Sales Trend
+                            <span class="text-sm font-normal text-gray-500">Revenue & Transactions • 2025</span>
+                        </h3>
+                        <canvas id="salesChart" class="h-80"></canvas>
+                    </div>
+
+                    <!-- Insights -->
+                    <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+                        <h3 class="font-semibold mb-4">Key Insights</h3>
+                        <div class="space-y-6" id="insights">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+
+                    <!-- Monthly Data Table -->
+                    <div class="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-gray-100 p-6 mt-6">
+                        <h3 class="font-semibold mb-4">Monthly Breakdown</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm" id="dataTable">
+                                <thead>
+                                    <tr class="border-b text-gray-500">
+                                        <th class="text-left py-3 px-4">Month</th>
+                                        <th class="text-right py-3 px-4">Revenue (Rp)</th>
+                                        <th class="text-right py-3 px-4">Transactions</th>
+                                        <th class="text-right py-3 px-4">Avg Ticket (Rp)</th>
+                                        <th class="text-right py-3 px-4">Items Sold</th>
+                                        <th class="text-right py-3 px-4">MoM Growth</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-gray-700" id="tableBody">
+                                    <!-- Populated by JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== GLOBAL DATA ====================
+        let posData = [
+            { month: "Jan", revenue: 42500000, transactions: 1180, itemsSold: 2450 },
+            { month: "Feb", revenue: 39800000, transactions: 1050, itemsSold: 2180 },
+            { month: "Mar", revenue: 51200000, transactions: 1390, itemsSold: 2890 },
+            { month: "Apr", revenue: 46700000, transactions: 1240, itemsSold: 2610 },
+            { month: "May", revenue: 58300000, transactions: 1520, itemsSold: 3170 },
+            { month: "Jun", revenue: 62100000, transactions: 1610, itemsSold: 3340 },
+            { month: "Jul", revenue: 54900000, transactions: 1480, itemsSold: 3020 },
+            { month: "Aug", revenue: 67400000, transactions: 1750, itemsSold: 3580 },
+            { month: "Sep", revenue: 70200000, transactions: 1820, itemsSold: 3790 },
+            { month: "Oct", revenue: 65800000, transactions: 1690, itemsSold: 3510 },
+            { month: "Nov", revenue: 78100000, transactions: 1980, itemsSold: 4120 },
+            { month: "Dec", revenue: 83500000, transactions: 2140, itemsSold: 4450 }
+        ];
+
+        // Format currency in Rp
+        function formatRp(amount) {
+            return "Rp " + amount.toLocaleString("id-ID");
+        }
+
+        // Calculate KPIs
+        function calculateKPIs(data) {
+            const totalRevenue = data.reduce((sum, m) => sum + m.revenue, 0);
+            const totalTransactions = data.reduce((sum, m) => sum + m.transactions, 0);
+            const avgMonthlyRevenue = Math.round(totalRevenue / data.length);
+            const avgTicket = Math.round(totalRevenue / totalTransactions);
+            
+            const lastMonth = data[data.length - 1];
+            const prevMonth = data[data.length - 2] || lastMonth;
+            const momGrowth = Math.round(((lastMonth.revenue - prevMonth.revenue) / prevMonth.revenue) * 100);
+
+            return { totalRevenue, totalTransactions, avgMonthlyRevenue, avgTicket, momGrowth };
+        }
+
+        // Render KPI Cards
+        function renderKPICards(data) {
+            const kpis = calculateKPIs(data);
+            const container = document.getElementById("kpiCards");
+            container.innerHTML = `
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <p class="text-sm text-gray-500">Total Revenue 2025</p>
+                    <p class="text-4xl font-semibold mt-2">${formatRp(kpis.totalRevenue)}</p>
+                    <p class="text-xs text-emerald-500 mt-4 flex items-center gap-1"><i class="fas fa-arrow-trend-up"></i> +${kpis.momGrowth}% MoM</p>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <p class="text-sm text-gray-500">Total Transactions</p>
+                    <p class="text-4xl font-semibold mt-2">${kpis.totalTransactions.toLocaleString("id-ID")}</p>
+                    <p class="text-xs text-blue-500 mt-4">Avg ${Math.round(kpis.totalTransactions/12)} per month</p>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <p class="text-sm text-gray-500">Avg Monthly Revenue</p>
+                    <p class="text-4xl font-semibold mt-2">${formatRp(kpis.avgMonthlyRevenue)}</p>
+                </div>
+                <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <p class="text-sm text-gray-500">Avg Ticket Size</p>
+                    <p class="text-4xl font-semibold mt-2">${formatRp(kpis.avgTicket)}</p>
+                </div>
+            `;
+        }
+
+        // Render Chart
+        let salesChartInstance;
+        function renderChart(data) {
+            const ctx = document.getElementById("salesChart");
+            if (salesChartInstance) salesChartInstance.destroy();
+
+            const months = data.map(m => m.month);
+            const revenue = data.map(m => m.revenue);
+            const transactions = data.map(m => m.transactions);
+
+            salesChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: 'Revenue (Rp)',
+                            data: revenue,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 3,
+                            tension: 0.3,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Transactions',
+                            data: transactions,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 3,
+                            type: 'bar',
+                            yAxisID: 'y2'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y1: { position: 'left', ticks: { callback: v => 'Rp ' + (v/1000000) + 'M' } },
+                        y2: { position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => v } }
+                    }
+                }
+            });
+        }
+
+        // Render Table
+        function renderTable(data) {
+            const tbody = document.getElementById("tableBody");
+            tbody.innerHTML = "";
+
+            let prevRevenue = data[0].revenue;
+            data.forEach((row, i) => {
+                const mom = i === 0 ? 0 : Math.round(((row.revenue - prevRevenue) / prevRevenue) * 100);
+                prevRevenue = row.revenue;
+
+                const tr = document.createElement("tr");
+                tr.className = "border-b hover:bg-gray-50";
+                tr.innerHTML = `
+                    <td class="py-4 px-4 font-medium">${row.month}</td>
+                    <td class="py-4 px-4 text-right">${formatRp(row.revenue)}</td>
+                    <td class="py-4 px-4 text-right">${row.transactions.toLocaleString("id-ID")}</td>
+                    <td class="py-4 px-4 text-right">${formatRp(Math.round(row.revenue / row.transactions))}</td>
+                    <td class="py-4 px-4 text-right">${row.itemsSold.toLocaleString("id-ID")}</td>
+                    <td class="py-4 px-4 text-right ${mom >= 0 ? 'text-emerald-500' : 'text-red-500'}">
+                        ${mom >= 0 ? '+' : ''}${mom}%
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render Insights
+        function renderInsights(data) {
+            const kpis = calculateKPIs(data);
+            const bestMonth = data.reduce((prev, curr) => prev.revenue > curr.revenue ? prev : curr);
+            const container = document.getElementById("insights");
+            container.innerHTML = `
+                <div class="flex justify-between"><span class="text-gray-500">Best performing month</span><span class="font-semibold">${bestMonth.month} (${formatRp(bestMonth.revenue)})</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Highest transactions</span><span class="font-semibold">${data.reduce((prev, curr) => prev.transactions > curr.transactions ? prev : curr).month}</span></div>
+                <div class="flex justify-between"><span class="text-gray-500">Year-to-date growth</span><span class="font-semibold text-emerald-600">+${kpis.momGrowth}%</span></div>
+                <div class="text-xs text-gray-400 mt-6">Data imported successfully. You can upload a new CSV anytime.</div>
+            `;
+        }
+
+        // CSV Parser
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split(/\r?\n/);
+            const headers = lines[0].toLowerCase().split(',').map(h => h.trim());
+            
+            const monthIdx = headers.findIndex(h => h.includes('month'));
+            const revIdx = headers.findIndex(h => h.includes('revenue'));
+            const transIdx = headers.findIndex(h => h.includes('trans'));
+            const itemsIdx = headers.findIndex(h => h.includes('item') || h.includes('sold'));
+
+            if (monthIdx === -1 || revIdx === -1 || transIdx === -1) {
+                throw new Error("CSV must contain columns: Month, Revenue, Transactions (ItemsSold is optional)");
+            }
+
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const values = lines[i].split(',').map(v => v.trim().replace(/[^0-9.-]/g, ''));
+                data.push({
+                    month: values[monthIdx],
+                    revenue: parseInt(values[revIdx]) || 0,
+                    transactions: parseInt(values[transIdx]) || 0,
+                    itemsSold: itemsIdx !== -1 ? parseInt(values[itemsIdx]) || 0 : 0
+                });
+            }
+            return data;
+        }
+
+        // Handle CSV Import
+        function handleCSVImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = parseCSV(e.target.result);
+                    if (importedData.length > 0) {
+                        posData = importedData;
+                        renderKPICards(posData);
+                        renderChart(posData);
+                        renderTable(posData);
+                        renderInsights(posData);
+                        
+                        // Show success message
+                        const msg = document.createElement('div');
+                        msg.style.cssText = 'position:fixed; top:20px; right:20px; background:#10b981; color:white; padding:16px 24px; border-radius:9999px; box-shadow:0 10px 15px -3px rgb(16 185 129);';
+                        msg.innerHTML = '✅ CSV imported successfully! Dashboard updated.';
+                        document.body.appendChild(msg);
+                        setTimeout(() => msg.remove(), 4000);
+                    } else {
+                        alert("CSV file is empty or invalid.");
+                    }
+                } catch (err) {
+                    alert("Import error: " + err.message + "\n\nPlease ensure your CSV has columns: Month, Revenue, Transactions");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Download Sample CSV
+        function downloadSampleCSV() {
+            const csvContent = `Month,Revenue,Transactions,ItemsSold
+Jan,42500000,1180,2450
+Feb,39800000,1050,2180
+Mar,51200000,1390,2890
+Apr,46700000,1240,2610
+May,58300000,1520,3170
+Jun,62100000,1610,3340
+Jul,54900000,1480,3020
+Aug,67400000,1750,3580
+Sep,70200000,1820,3790
+Oct,65800000,1690,3510
+Nov,78100000,1980,4120
+Dec,83500000,2140,4450`;
+            
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'pos-sample-data.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Dark mode toggle
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+        }
+
+        // Initialize Dashboard
+        function initDashboard() {
+            renderKPICards(posData);
+            renderChart(posData);
+            renderTable(posData);
+            renderInsights(posData);
+        }
+
+        window.onload = initDashboard;
+    </script>
+</body>
+</html>

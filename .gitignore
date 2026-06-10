@@ -1,0 +1,24 @@
+# Patient data — never commit
+Raw CSVs/
+*.csv
+dashboard-data.json
+
+# Build artifacts & large binaries
+package/
+build/
+dist/
+*.zip
+*.exe
+*.spec
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Scratch files
+_snippet.js
+_t7.js
+
+# Claude internal
+.claude/
