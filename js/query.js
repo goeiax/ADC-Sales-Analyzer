@@ -272,39 +272,42 @@ function lqRunQuery() {
       + rows + '</tbody></table>';
   };
 
-  // 1) top N patients by spend
-  let m = ql.match(/top\s+(\d+)?\s*patient/);
+  // 1) top N patients by spend — accepts EN "top 5 patients" and ID "top 5 pasien"
+  let m = ql.match(/top\s+(\d+)?\s*(patient|pasien)/);
   if (m) {
     const n = parseInt(m[1] || '10', 10);
     const top = [...profiles].sort((a, b) => (b.totalSpend || 0) - (a.totalSpend || 0)).slice(0, n);
     box.innerHTML = listPatients(top, 'pasien teratas berdasarkan belanja seumur hidup'); return;
   }
 
-  // 2) lifecycle segment, optional "over Nm" spend floor
-  m = ql.match(/(dormant|lapsing|active)/);
+  // 2) lifecycle segment (EN + ID terms), optional "over Nm" / "di atas NJt" spend floor
+  m = ql.match(/(dormant|dorman|lapsing|menurun|active|aktif)/);
   if (m) {
-    const lc = m[1];
-    const floor = ql.match(/over\s+([\d.]+)\s*m/);
+    const lc = { dorman: 'dormant', menurun: 'lapsing', aktif: 'active' }[m[1]] || m[1];
+    const floor = ql.match(/(?:over|di\s*atas)\s+([\d.]+)\s*(?:m|jt)/);
     const min = floor ? parseFloat(floor[1]) * 1e6 : 0;
+    const wantPhone = ql.includes('phone') || ql.includes('telepon');
     let arr = profiles.filter(p => p.lifecycle === lc && (p.totalSpend || 0) >= min);
-    if (ql.includes('phone')) arr = arr.filter(p => p.phone);
+    if (wantPhone) arr = arr.filter(p => p.phone);
     arr.sort((a, b) => (b.totalSpend || 0) - (a.totalSpend || 0));
-    box.innerHTML = listPatients(arr, 'pasien ' + lc + (min ? ' di atas ' + (min / 1e6) + 'Jt' : '') + (ql.includes('phone') ? ' punya telepon' : '')); return;
+    box.innerHTML = listPatients(arr, 'pasien ' + lc + (min ? ' di atas ' + (min / 1e6) + 'Jt' : '') + (wantPhone ? ' punya telepon' : '')); return;
   }
 
-  // 3) revenue in <month>
-  m = ql.match(/revenue\s+(?:in\s+)?(jan\w*|feb\w*|mar\w*|apr\w*|may|jun\w*|jul\w*|aug\w*|sep\w*|oct\w*|nov\w*|dec\w*)/);
+  // 3) revenue in <month> — EN "revenue march" or ID "pendapatan maret"
+  m = ql.match(/(?:revenue|pendapatan)\s+(?:in\s+|bulan\s+)?(jan\w*|feb\w*|mar\w*|apr\w*|may|mei|jun\w*|jul\w*|aug\w*|agu\w*|sep\w*|oct\w*|okt\w*|nov\w*|dec\w*|des\w*)/);
   if (m) {
-    const mon = m[1].slice(0, 3);
+    const idToEn = { mei: 'may', agu: 'aug', okt: 'oct', des: 'dec' };
+    let mon = m[1].slice(0, 3);
+    mon = idToEn[mon] || mon;
     const row = (D.monthly || []).find(x => x.month.toLowerCase().startsWith(mon));
     box.innerHTML = row
-      ? '<div style="font-size:0.9rem;color:#111827;"><strong>' + row.month.replace('*', '') + '</strong> pendapatan: <strong>' + rp(row.revenue, 2) + '</strong> · ' + row.txns + ' invoice · AOV ' + rp(row.aov, 2) + '</div>'
+      ? '<div style="font-size:0.9rem;color:#111827;"><strong>' + idMonth(row.month.replace('*', '')) + '</strong> pendapatan: <strong>' + rp(row.revenue, 2) + '</strong> · ' + row.txns + ' invoice · AOV ' + rp(row.aov, 2) + '</div>'
       : '<span style="color:#9ca3af;font-size:0.82rem;">Tidak ada data untuk bulan itu.</span>';
     return;
   }
 
-  // 4) doctors at <outlet>
-  m = ql.match(/doctor.*(spgk|spdve)|(spgk|spdve).*doctor/);
+  // 4) doctors at <outlet> — EN "doctor" or ID "dokter"
+  m = ql.match(/(?:doctor|dokter).*(spgk|spdve)|(spgk|spdve).*(?:doctor|dokter)/);
   if (m) {
     const out = ql.includes('spgk') ? 'SpGK' : 'SpDVE';
     const docs = (D.doctors || []).filter(d => (d.outlet || '').toLowerCase() === out.toLowerCase());
